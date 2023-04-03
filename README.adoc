@@ -1,0 +1,6 @@
+= PyQuickWin
+
+== Introduction
+This project provides a Python 3.x application that allows quick keyboard-based switching between open windows as well as the ability to bookmark frequently used windows for quick return. PyQuickWin is meant to supplement standard alt-tabbing while providing additional window movement control for those comfortable navigating with a keyboard.
+
+This project is a reimplementation of the original https://github.com/jeffrimko/QuickWin[QuickWin application].
