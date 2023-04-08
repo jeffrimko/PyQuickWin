@@ -5,6 +5,7 @@
 from abc import ABC, abstractproperty
 from collections import namedtuple
 from dataclasses import dataclass, field
+from enum import Enum, auto
 from math import floor
 from typing import List, Optional, Callable
 
@@ -38,6 +39,13 @@ class _Default:
         "McvCEIBdm3F7/fr0FKgBRFaIrHkAdykdQFmEGm2HL233BAIAYmxYEqjePo9SBYBvBKppclDz"
         "prMcqAhbAtknJx+3AKRHgGhnv4iApQY+jtSWpOY27BnifNt5uyk9BekAoZNwl21yDBSBi/63"
         "yOMiLAXaf8AuwP9n94vzaTYBsgHeht4lXXmb7yQAAAAASUVORK5CYII=")
+
+class KeyKind(Enum):
+    NEXT = auto()
+    PREV = auto()
+    UNDO = auto()
+    INTO = auto()
+    OUTOF = auto()
 
 @dataclass
 class MenuItem:
@@ -78,6 +86,7 @@ class ProcessorInput:
     cmdtext: Optional[CmdtextState] = None
     lstview: Optional[LstviewState] = None
     outtext: Optional[OuttextState] = None
+    key: Optional[KeyKind] = None
     is_complete: bool = False
     was_hidden: bool = True
 
@@ -257,6 +266,11 @@ class MainWindow(wx.MiniFrame):
             KeyBinding("CTRL", "H", self.MoveViewTop),
             KeyBinding("CTRL", "M", self.MoveViewMiddle),
             KeyBinding("CTRL", "L", self.MoveViewBottom),
+            KeyBinding("CTRL", "P", self.OnPrev),
+            KeyBinding("CTRL", "N", self.OnNext),
+            KeyBinding("CTRL", "U", self.OnUndo),
+            KeyBinding("CTRL", "I", self.OnInto),
+            KeyBinding("CTRL", "O", self.OnOutof),
         ]
 
         accels = []
@@ -294,6 +308,7 @@ class MainWindow(wx.MiniFrame):
             ignore_keys = [
                 ord('E'),
                 ord('R'),
+                ord('I'),
                 wx.WXK_SUBTRACT,
                 wx.WXK_ADD,
                 61 # Non-numeric =
@@ -361,14 +376,27 @@ class MainWindow(wx.MiniFrame):
         row = self.lstview.GetItemCount() // 2
         self.SelectRowNum(row)
 
-    def OnCloseMe(self, event):
-        self.Close(True)
+    def OnNext(self, event):
+        self.UpdateOutput(key=KeyKind.NEXT)
 
-    def UpdateOutput(self, complete=False):
+    def OnPrev(self, event):
+        self.UpdateOutput(key=KeyKind.PREV)
+
+    def OnUndo(self, event):
+        self.UpdateOutput(key=KeyKind.UNDO)
+
+    def OnInto(self, event):
+        self.UpdateOutput(key=KeyKind.INTO)
+
+    def OnOutof(self, event):
+        self.UpdateOutput(key=KeyKind.OUTOF)
+
+    def UpdateOutput(self, complete=False, key=None):
         if not self.IsShown():
             return
 
         self.pinput.is_complete = complete
+        self.pinput.key = key
         self.pinput.cmdtext.text = self.cmdtext.GetValue()
         self.pinput.lstview.selnum = self.lstview.GetSelectedRow()
         out = self.app.processor.update(self.pinput)

@@ -16,7 +16,7 @@ import auxly
 import ujson
 import yaml
 
-from qwindow import App, Config, ProcessorBase, ProcessorOutput, MenuItem, SubprocessorBase, subprocessors
+from qwindow import App, Config, KeyKind, ProcessorBase, ProcessorOutput, MenuItem, SubprocessorBase, subprocessors
 from winctrl import WinControl, WinInfo
 
 ##==============================================================#
@@ -237,6 +237,8 @@ class ExploreProcessor(SubprocessorBase):
 
     def update(self, pinput):
         cmdtext = pinput.cmdtext.text[1:].lstrip()
+        if pinput.key == KeyKind.OUTOF:
+            self._selected = None
         if self._selected is None:
             return self._show_root(pinput, cmdtext)
         return self._show_selected(pinput, cmdtext)
@@ -259,7 +261,7 @@ class ExploreProcessor(SubprocessorBase):
                 name = dpath.name
                 if name.startswith(".") or name.startswith("__"):
                     continue
-                if not StrCompare.choice(cmdtext, name):
+                if not StrCompare.choice(cmdtext, dpath):
                     continue
                 rows.append([name, path])
         output = ProcessorOutput()
@@ -273,7 +275,7 @@ class ExploreProcessor(SubprocessorBase):
         return output
 
     def _show_root(self, pinput, cmdtext):
-        if pinput.is_complete:
+        if pinput.is_complete or pinput.key == KeyKind.INTO:
             self._selected = pinput.get_selrow()[0]
             output = ProcessorOutput()
             output.add_cmd(ExploreProcessor.PREFIX)
