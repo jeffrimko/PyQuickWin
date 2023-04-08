@@ -252,6 +252,8 @@ class MainWindow(wx.MiniFrame):
             KeyBinding("CTRL", "ENTER", self.OnRowActivate),
             KeyBinding("CTRL", "K", self.MoveViewUp),
             KeyBinding("CTRL", "J", self.MoveViewDown),
+            KeyBinding("", "UP", self.MoveViewUp),
+            KeyBinding("", "DOWN", self.MoveViewDown),
             KeyBinding("CTRL", "H", self.MoveViewTop),
             KeyBinding("CTRL", "M", self.MoveViewMiddle),
             KeyBinding("CTRL", "L", self.MoveViewBottom),
@@ -444,6 +446,8 @@ class _WxUtils:
         if ukeystr == "SPACE": return wx.WXK_SPACE
         if ukeystr == "ESC": return wx.WXK_ESCAPE
         if ukeystr == "ENTER": return wx.WXK_RETURN
+        if ukeystr == "UP": return wx.WXK_UP
+        if ukeystr == "DOWN": return wx.WXK_DOWN
 
     @staticmethod
     def CalcSize(displaynum, winpct):
