@@ -38,6 +38,63 @@ class Command:
     kind: CommandKind
     text: str
 
+class HistManager:
+    MAX_ENTRIES = 20
+
+    def __init__(self, hist_path):
+        self._histfile = File(hist_path)
+        self._hists = [l.strip() for l in self._histfile.readlines()]
+        self.reset()
+
+    @staticmethod
+    def update(method):
+        def wrapper(processor, pinput):
+            if pinput.was_hidden:
+                processor._histmgr.reset()
+            if pinput.key == KeyKind.PREV:
+                pout = ProcessorOutput()
+                pout.add_cmd(processor._histmgr.get_prev())
+                return pout
+            elif pinput.key == KeyKind.NEXT:
+                pout = ProcessorOutput()
+                pout.add_cmd(processor._histmgr.get_next())
+                return pout
+            if pinput.is_complete and pinput.cmd:
+                    processor._histmgr.add(pinput.cmd)
+            return method(processor, pinput)
+        return wrapper
+
+    def reset(self):
+        self._pointer = -1
+
+    def get_prev(self):
+        self._pointer += 1
+        if self._pointer >= len(self._hists):
+            self._pointer = len(self._hists) - 1
+        if not self._hists:
+            return ''
+        return self._hists[self._pointer]
+
+    def get_next(self):
+        self._pointer -= 1
+        if self._pointer < 0:
+            self._pointer = 0
+        if not self._hists:
+            return ''
+        return self._hists[self._pointer]
+
+    def add(self, text):
+        new_hists = [text.strip()]
+        for hist in self._hists:
+            if hist not in new_hists:
+                new_hists.append(hist)
+            if len(new_hists) >= HistManager.MAX_ENTRIES:
+                break
+        self._histfile.empty()
+        for hist in new_hists:
+            self._histfile.appendline(hist)
+        self._hists = new_hists
+
 class WinExcluder:
     def __init__(self, exclude_path):
         self._exclude_path = exclude_path
@@ -299,6 +356,7 @@ class LaunchProcessor(SubprocessorBase):
     PREFIX = ":"
     def __init__(self, cfg):
         self._path = cfg['launch_dir']
+        self._histmgr = HistManager(cfg['hist_file'])
 
     @property
     def help(self) -> str:
@@ -309,6 +367,7 @@ class LaunchProcessor(SubprocessorBase):
             return False
         return pinput.cmd[0] == LaunchProcessor.PREFIX
 
+    @HistManager.update
     def update(self, pinput):
         if pinput.is_complete:
             stem,ext = pinput.selrow
@@ -330,45 +389,6 @@ class LaunchProcessor(SubprocessorBase):
             pinput.lstview.selnum
         )
         return output
-
-class HistManager:
-    MAX_ENTRIES = 20
-
-    def __init__(self, hist_path):
-        self._histfile = File(hist_path)
-        self._hists = [l.strip() for l in self._histfile.readlines()]
-        self.reset()
-
-    def reset(self):
-        self._pointer = -1
-
-    def get_prev(self):
-        self._pointer += 1
-        if self._pointer >= len(self._hists):
-            self._pointer = len(self._hists) - 1
-        if not self._hists:
-            return ''
-        return self._hists[self._pointer]
-
-    def get_next(self):
-        self._pointer -= 1
-        if self._pointer < 0:
-            self._pointer = 0
-        if not self._hists:
-            return ''
-        return self._hists[self._pointer]
-
-    def add(self, text):
-        new_hists = [text.strip()]
-        for hist in self._hists:
-            if hist not in new_hists:
-                new_hists.append(hist)
-            if len(new_hists) >= HistManager.MAX_ENTRIES:
-                break
-        self._histfile.empty()
-        for hist in new_hists:
-            self._histfile.appendline(hist)
-        self._hists = new_hists
 
 class Processor(ProcessorBase):
     def __init__(self, cfg, subprocessors=None):
@@ -392,17 +412,8 @@ class Processor(ProcessorBase):
         return msg
 
     @subprocessors
+    @HistManager.update
     def update(self, pinput):
-        if pinput.was_hidden:
-            self._histmgr.reset()
-        if pinput.key == KeyKind.PREV:
-            pout = ProcessorOutput()
-            pout.add_cmd(self._histmgr.get_prev())
-            return pout
-        elif pinput.key == KeyKind.NEXT:
-            pout = ProcessorOutput()
-            pout.add_cmd(self._histmgr.get_next())
-            return pout
         self._winmgr.update(pinput)
         cmds = parse(pinput.cmdtext.text)
         if (not pinput.cmdtext.text) and (not cmds):
@@ -410,8 +421,8 @@ class Processor(ProcessorBase):
 
         cmd_on_complete = self._handle_incomplete(cmds)
         if pinput.is_complete:
-            if pinput.cmd:
-                self._histmgr.add(pinput.cmd)
+            # if pinput.cmd:
+            #     self._histmgr.add(pinput.cmd)
             return self._handle_complete(cmd_on_complete)
         return self._render_rows()
 
