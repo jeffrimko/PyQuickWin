@@ -19,7 +19,7 @@ try:
     # resolution.
     import ctypes
     ctypes.windll.shcore.SetProcessDpiAwareness(True)
-except:
+except Exception:
     pass
 
 ##==============================================================#
@@ -90,10 +90,17 @@ class ProcessorInput:
     is_complete: bool = False
     was_hidden: bool = True
 
-    def get_selrow(self):
+    @property
+    def cmd(self) -> str:
+        if self.cmdtext is not None:
+            return self.cmdtext.text or ''
+        return ''
+
+    @property
+    def selrow(self):
         try:
             return self.lstview.rows[self.lstview.selnum]
-        except:
+        except Exception:
             return None
 
 @dataclass
@@ -144,12 +151,15 @@ class TaskBarIcon(wx.adv.TaskBarIcon):
         menu = wx.Menu()
         if self.app.config.menuitems:
             for item in self.app.config.menuitems:
-                TaskBarIcon.CreateMenuItem(menu, item.name, lambda _: self.ShowMenuItemDialog(item))
+                TaskBarIcon.CreateMenuItem(menu, item.name, self.CreatePopupFunc(item))
             menu.AppendSeparator()
         TaskBarIcon.CreateMenuItem(menu, 'Help', self.OnHelp)
         TaskBarIcon.CreateMenuItem(menu, 'About', self.OnAbout)
         TaskBarIcon.CreateMenuItem(menu, 'Exit', self.OnExit)
         return menu
+
+    def CreatePopupFunc(self, item):
+        return lambda _: self.ShowMenuItemDialog(item)
 
     def ShowMenuItemDialog(self, item):
         no = 8
@@ -185,7 +195,7 @@ class App(wx.App):
     def InitIcon(self):
         try:
             self.icon = wx.Icon(wx.Bitmap(self.config.iconpath))
-        except:
+        except Exception:
             self.icon = _Default.icon.GetIcon()
 
     def OnInit(self):
@@ -263,6 +273,8 @@ class MainWindow(wx.MiniFrame):
             KeyBinding("CTRL", "J", self.MoveViewDown),
             KeyBinding("", "UP", self.MoveViewUp),
             KeyBinding("", "DOWN", self.MoveViewDown),
+            KeyBinding("", "LEFT", self.MoveViewTop),
+            KeyBinding("", "RIGHT", self.MoveViewBottom),
             KeyBinding("CTRL", "H", self.MoveViewTop),
             KeyBinding("CTRL", "M", self.MoveViewMiddle),
             KeyBinding("CTRL", "L", self.MoveViewBottom),
@@ -271,6 +283,7 @@ class MainWindow(wx.MiniFrame):
             KeyBinding("CTRL", "U", self.OnUndo),
             KeyBinding("CTRL", "I", self.OnInto),
             KeyBinding("CTRL", "O", self.OnOutof),
+            KeyBinding("CTRL", "D", self.OnClearCmd),
         ]
 
         accels = []
@@ -320,6 +333,7 @@ class MainWindow(wx.MiniFrame):
     def DoHide(self):
         self.Hide()
         self.cmdtext.SetValue("")
+        self.pinput.was_hidden = True
 
     def DoShow(self):
         self.Show()
@@ -391,6 +405,10 @@ class MainWindow(wx.MiniFrame):
     def OnOutof(self, event):
         self.UpdateOutput(key=KeyKind.OUTOF)
 
+    def OnClearCmd(self, event):
+        self.cmdtext.SetValue('')
+        self.cmdtext.SetFocus()
+
     def UpdateOutput(self, complete=False, key=None):
         if not self.IsShown():
             return
@@ -401,16 +419,15 @@ class MainWindow(wx.MiniFrame):
         self.pinput.lstview.selnum = self.lstview.GetSelectedRow()
         out = self.app.processor.update(self.pinput)
 
-        self.pinput.was_hidden = False
         if out is None:
             return
 
+        self.pinput.was_hidden = False
         if out.hide:
             self.DoHide()
             self.pinput.cmdtext = CmdtextState()
             self.pinput.lstview = LstviewState()
             self.pinput.outtext = OuttextState()
-            self.pinput.was_hidden = True
             return
 
         lstview_prop, outtext_prop = self.app.config.comprops
@@ -476,6 +493,8 @@ class _WxUtils:
         if ukeystr == "ENTER": return wx.WXK_RETURN
         if ukeystr == "UP": return wx.WXK_UP
         if ukeystr == "DOWN": return wx.WXK_DOWN
+        if ukeystr == "LEFT": return wx.WXK_LEFT
+        if ukeystr == "RIGHT": return wx.WXK_RIGHT
 
     @staticmethod
     def CalcSize(displaynum, winpct):

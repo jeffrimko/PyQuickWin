@@ -198,45 +198,45 @@ class MathProcessor(SubprocessorBase):
         return "Math processor prefix: " + MathProcessor.PREFIX
 
     def use_processor(self, pinput):
-        if len(pinput.cmdtext.text) == 0:
+        if len(pinput.cmd) == 0:
             return False
-        return pinput.cmdtext.text[0] == MathProcessor.PREFIX
+        return pinput.cmd[0] == MathProcessor.PREFIX
 
     def update(self, pinput):
-        cmdtext = pinput.cmdtext.text.split("=", maxsplit=1)[1]
+        cmdtext = pinput.cmd.split("=", maxsplit=1)[1]
         output = ProcessorOutput()
         output.hide_rows()
         try:
             result = eval(cmdtext)
-            output.add_out(f"Result: {result}")
-        except:
-            output.add_out(f"Result:")
+            output.add_out(f"Math result: {result}")
+        except Exception:
+            output.add_out(f"Math result:")
         return output
 
-class ExploreProcessor(SubprocessorBase):
+class DirAggProcessor(SubprocessorBase):
     PREFIX = ">"
-    def __init__(self, path):
-        self._path = path
+    def __init__(self, cfg):
+        self._path = cfg['locations_file']
         self._cfg = {}
         self._selected = None
         self.reload_config()
 
     @property
     def help(self) -> str:
-        return "Explore processor prefix: " + ExploreProcessor.PREFIX
+        return "DirAgg processor prefix: " + DirAggProcessor.PREFIX
 
     def reload_config(self):
         self._cfg = yaml.safe_load(File(self._path).read())
         self._selected = None
 
     def use_processor(self, pinput):
-        if len(pinput.cmdtext.text) == 0:
+        if len(pinput.cmd) == 0:
             self._selected = None
             return False
-        return pinput.cmdtext.text.startswith(ExploreProcessor.PREFIX)
+        return pinput.cmd.startswith(DirAggProcessor.PREFIX)
 
     def update(self, pinput):
-        cmdtext = pinput.cmdtext.text[1:].lstrip()
+        cmdtext = pinput.cmd[1:].lstrip()
         if pinput.key == KeyKind.OUTOF:
             self._selected = None
         if self._selected is None:
@@ -245,14 +245,14 @@ class ExploreProcessor(SubprocessorBase):
 
     def _show_selected(self, pinput, cmdtext):
         if pinput.is_complete:
-            name, path = pinput.get_selrow()
+            name, path = pinput.selrow
             dpath = Dir(path, name)
             auxly.open(dpath)
             return ProcessorOutput(hide=True)
         rows = []
         selected = self._cfg[self._selected]
         outtext = []
-        outtext.append(f"Exploring: {self._selected}")
+        outtext.append(f"DirAgg selected: {self._selected}")
         for path in selected:
             if not Dir(path).exists():
                 outtext.append(f"Path not found: {path}")
@@ -276,9 +276,9 @@ class ExploreProcessor(SubprocessorBase):
 
     def _show_root(self, pinput, cmdtext):
         if pinput.is_complete or pinput.key == KeyKind.INTO:
-            self._selected = pinput.get_selrow()[0]
+            self._selected = pinput.selrow[0]
             output = ProcessorOutput()
-            output.add_cmd(ExploreProcessor.PREFIX)
+            output.add_cmd(DirAggProcessor.PREFIX)
             return output
         rows = []
         for k in self._cfg.keys():
@@ -292,37 +292,37 @@ class ExploreProcessor(SubprocessorBase):
             rows,
             pinput.lstview.selnum
         )
-        output.add_out("Select an item")
+        output.add_out("Select a DirAgg")
         return output
 
 class LaunchProcessor(SubprocessorBase):
     PREFIX = ":"
-    def __init__(self, path):
-        self._path = path
+    def __init__(self, cfg):
+        self._path = cfg['launch_dir']
 
     @property
     def help(self) -> str:
         return "Launch processor prefix: " + LaunchProcessor.PREFIX
 
     def use_processor(self, pinput):
-        if len(pinput.cmdtext.text) == 0:
+        if len(pinput.cmd) == 0:
             return False
-        return pinput.cmdtext.text[0] == LaunchProcessor.PREFIX
+        return pinput.cmd[0] == LaunchProcessor.PREFIX
 
     def update(self, pinput):
         if pinput.is_complete:
-            stem,ext = pinput.get_selrow()
+            stem,ext = pinput.selrow
             selpath = File(self._path, stem + ext)
             auxly.open(selpath)
             return ProcessorOutput(hide=True)
-        cmdtext = pinput.cmdtext.text[1:].lstrip()
+        cmdtext = pinput.cmd[1:].lstrip()
         output = ProcessorOutput()
         rows = []
         for f in walkfiles(self._path):
             if not StrCompare.choice(cmdtext, f.name):
                 continue
             rows.append([f.stem, f.ext])
-        output.add_out(f"Items found: {len(rows)}")
+        output.add_out(f"Launch items found: {len(rows)}")
         output.add_rows(
             ["Name", "Ext"],
             [3,1],
@@ -331,11 +331,51 @@ class LaunchProcessor(SubprocessorBase):
         )
         return output
 
+class HistManager:
+    MAX_ENTRIES = 20
+
+    def __init__(self, hist_path):
+        self._histfile = File(hist_path)
+        self._hists = [l.strip() for l in self._histfile.readlines()]
+        self.reset()
+
+    def reset(self):
+        self._pointer = -1
+
+    def get_prev(self):
+        self._pointer += 1
+        if self._pointer >= len(self._hists):
+            self._pointer = len(self._hists) - 1
+        if not self._hists:
+            return ''
+        return self._hists[self._pointer]
+
+    def get_next(self):
+        self._pointer -= 1
+        if self._pointer < 0:
+            self._pointer = 0
+        if not self._hists:
+            return ''
+        return self._hists[self._pointer]
+
+    def add(self, text):
+        new_hists = [text.strip()]
+        for hist in self._hists:
+            if hist not in new_hists:
+                new_hists.append(hist)
+            if len(new_hists) >= HistManager.MAX_ENTRIES:
+                break
+        self._histfile.empty()
+        for hist in new_hists:
+            self._histfile.appendline(hist)
+        self._hists = new_hists
+
 class Processor(ProcessorBase):
-    def __init__(self, alias_path, exclude_path, subprocessors=None):
+    def __init__(self, cfg, subprocessors=None):
         self._outtext: List[str] = []
         self._orderby = ""
-        self._winmgr = WinManager(alias_path, exclude_path)
+        self._winmgr = WinManager(cfg['alias_file'], cfg['exclude_file'])
+        self._histmgr = HistManager(cfg['hist_file'])
         self._subprocessors = subprocessors or []
 
     @property
@@ -353,6 +393,16 @@ class Processor(ProcessorBase):
 
     @subprocessors
     def update(self, pinput):
+        if pinput.was_hidden:
+            self._histmgr.reset()
+        if pinput.key == KeyKind.PREV:
+            pout = ProcessorOutput()
+            pout.add_cmd(self._histmgr.get_prev())
+            return pout
+        elif pinput.key == KeyKind.NEXT:
+            pout = ProcessorOutput()
+            pout.add_cmd(self._histmgr.get_next())
+            return pout
         self._winmgr.update(pinput)
         cmds = parse(pinput.cmdtext.text)
         if (not pinput.cmdtext.text) and (not cmds):
@@ -360,6 +410,8 @@ class Processor(ProcessorBase):
 
         cmd_on_complete = self._handle_incomplete(cmds)
         if pinput.is_complete:
+            if pinput.cmd:
+                self._histmgr.add(pinput.cmd)
             return self._handle_complete(cmd_on_complete)
         return self._render_rows()
 
@@ -552,21 +604,18 @@ def parse(input_cmd: str) -> List[Command]:
 ##==============================================================#
 
 if __name__ == '__main__':
-    # TODO: Maybe split up config by processor
     cfg_path = sys.argv[1]
     cfg = configparser.ConfigParser()
     cfg.read(cfg_path)
-    alias_path = cfg.get('paths', 'alias_file')
-    exclude_path = cfg.get('paths', 'exclude_file')
-    explore_path = cfg.get('paths', 'explore_file')
-    launch_path = cfg.get('paths', 'launch_dir')
-    explore = ExploreProcessor(explore_path)
+
+    explore = DirAggProcessor(dict(cfg.items('diragg')))
     subprocessors = [
         explore,
-        LaunchProcessor(launch_path),
+        LaunchProcessor(dict(cfg.items('launch'))),
         MathProcessor()
     ]
-    processor = Processor(alias_path, exclude_path, subprocessors)
+
+    processor = Processor(dict(cfg.items('quickwin')), subprocessors)
     config = Config(
         name='QuickWin',
         about='A window switcher',
@@ -576,15 +625,15 @@ if __name__ == '__main__':
         comprops=[6, 1],
         menuitems=[
             MenuItem(
-                name='Reload exclusions',
+                name='Reload QuickWin exclusions',
                 msg='Window exclusions have been reloaded from file',
                 func=processor.reload_exclusions
             ),
             MenuItem(
-                name='Reload explore',
-                msg='Explore configuration has been reloaded from file',
+                name='Reload DirAgg locations',
+                msg='DirAgg locations configuration has been reloaded from file',
                 func=explore.reload_config
-            )
+            ),
         ]
     )
     App(config, processor)
