@@ -353,7 +353,7 @@ class DirAggProcessor(SubprocessorBase):
         return output
 
 class LaunchProcessor(SubprocessorBase):
-    PREFIX = ":"
+    PREFIX = "."
     def __init__(self, cfg):
         self._path = cfg['launch_dir']
         self._histmgr = HistManager(cfg['hist_file'])
