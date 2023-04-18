@@ -40,7 +40,7 @@ class Command:
 
 class HistStore:
     def __init__(self, hist_path, max_entries):
-        self._histfile = File(hist_path)
+        self._histfile = File(hist_path, make=True)
         self._max_entries = max_entries
         self._load()
 
@@ -169,7 +169,7 @@ class WinManager:
         #: Index numbers of known windows included in output.
         self._outwinnums: List[int] = []
 
-        self._alias_file = File(alias_path)
+        self._alias_file = File(alias_path, make=True)
         self._alias: Dict[WinInfo, str] = self._load_alias_file()
         self._selected_outwinnum = 0
         self._excluder = WinExcluder(exclude_path)
