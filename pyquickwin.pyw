@@ -194,12 +194,14 @@ class WinManager:
             self._selected_outwinnum = 0
         self._reset_outwinnums()
 
-    def filter(self, cmdtext, getwintext=None):
+    def filter(self, cmdtext, getwintext=None, exact=False):
         default = lambda w: self._alias.get(w)
         def compare(wnum):
             wintext = (getwintext or default)(self._allwins[wnum])
             if wintext is None:
                 return False
+            if exact:
+                return StrCompare.exact(cmdtext, wintext)
             return StrCompare.choice(cmdtext, wintext)
         self._outwinnums = list(filter(compare, self._outwinnums))
         try:
@@ -223,6 +225,7 @@ class WinManager:
     @property
     def selected_rownum(self):
         if self._selected_outwinnum is None: return None
+        if not self._outwinnums: return None
         return self._outwinnums.index(self._selected_outwinnum)
 
     @property
@@ -515,7 +518,7 @@ class Processor(ProcessorBase):
                 self._winmgr.filter(cmd.text)
             elif cmd.kind == CommandKind.LIM:
                 winfo = self._winmgr.selected_winfo
-                self._winmgr.filter(winfo.exe, lambda w: w.exe)
+                self._winmgr.filter(winfo.exe, lambda w: w.exe, exact=True)
             elif cmd.kind == CommandKind.SET:
                 cmd_on_complete = cmd
             elif cmd.kind == CommandKind.ORD:
