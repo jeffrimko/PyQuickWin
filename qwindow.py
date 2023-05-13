@@ -273,8 +273,6 @@ class MainWindow(wx.MiniFrame):
             KeyBinding("CTRL", "J", self.MoveViewDown),
             KeyBinding("", "UP", self.MoveViewUp),
             KeyBinding("", "DOWN", self.MoveViewDown),
-            KeyBinding("", "LEFT", self.MoveViewTop),
-            KeyBinding("", "RIGHT", self.MoveViewBottom),
             KeyBinding("CTRL", "H", self.MoveViewTop),
             KeyBinding("CTRL", "M", self.MoveViewMiddle),
             KeyBinding("CTRL", "L", self.MoveViewBottom),
