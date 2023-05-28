@@ -44,22 +44,29 @@ class HistStore:
         self._max_entries = max_entries
         self._load()
 
-    def __getitem__(self, idx: int) -> Optional[List[str]]:
+    def get(self, prefix: str, idx: int) -> Optional[List[str]]:
         try:
-            return self._hists[idx]
+            return self._filter(prefix)[idx]
         except IndexError:
             return None
 
-    def __len__(self):
-        return len(self._hists)
-
-    def startswith(self, key):
+    def _filter(self, prefix: str):
+        result = []
         for hist in self._hists:
-            if hist[0].startswith(key):
+            if hist[0].startswith(prefix):
+                result.append(hist)
+        return result
+
+    def len(self, prefix: str):
+        return len(self._filter(prefix))
+
+    def startswith(self, prefix: str):
+        for hist in self._hists:
+            if hist[0].startswith(prefix):
                 return hist
         return None
 
-    def add(self, key: str, value: str,):
+    def add(self, key: str, value: str):
         new_hists = [[key, value]]
         new_keys = [key]
         for hist in self._hists:
@@ -94,15 +101,15 @@ class HistManager:
     def update(rownum):
         def m_wrapper(method):
             def a_wrapper(processor, pinput):
-                if pinput.was_hidden:
+                if pinput.was_hidden or pinput.cmd == '':
                     processor._histmgr._reset()
                 if pinput.key == KeyKind.PREV:
                     pout = ProcessorOutput()
-                    pout.add_cmd(processor._histmgr._get_prev())
+                    pout.add_cmd(processor._histmgr._get_prev(pinput.cmd))
                     return pout
                 elif pinput.key == KeyKind.NEXT:
                     pout = ProcessorOutput()
-                    pout.add_cmd(processor._histmgr._get_next())
+                    pout.add_cmd(processor._histmgr._get_next(pinput.cmd))
                     return pout
                 if pinput.is_complete and pinput.cmd:
                     processor._histmgr.add(pinput.cmd, HistManager._get_selrowtext(pinput, rownum))
@@ -118,22 +125,31 @@ class HistManager:
 
     def _reset(self):
         self._pointer = -1
+        self._base = None
 
-    def _get_prev(self):
+    def _try_set_base(self, value):
+        if self._base == None:
+            self._base = value
+        elif value == '':
+            self._base = None
+
+    def _get_prev(self, value):
+        self._try_set_base(value)
         self._pointer += 1
-        if self._pointer >= len(self._hists):
-            self._pointer = len(self._hists) - 1
-        if len(self._hists) == 0:
+        if self._pointer >= self._hists.len(self._base):
+            self._pointer = self._hists.len(self._base) - 1
+        if self._hists.len(self._base) == 0:
             return ''
-        return self._hists[self._pointer][0]
+        return self._hists.get(self._base, self._pointer)[0]
 
-    def _get_next(self):
+    def _get_next(self, value):
+        self._try_set_base(value)
         self._pointer -= 1
         if self._pointer < 0:
             self._pointer = 0
-        if len(self._hists) == 0:
+        if self._hists.len(self._base) == 0:
             return ''
-        return self._hists[self._pointer][0]
+        return self._hists.get(self._base, self._pointer)[0]
 
     def add(self, cmd, row):
         self._hists.add(cmd.strip(), row)
