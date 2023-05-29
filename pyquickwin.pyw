@@ -20,6 +20,14 @@ from qwindow import App, Config, KeyKind, ProcessorBase, ProcessorOutput, MenuIt
 from winctrl import WinControl, WinInfo
 
 ##==============================================================#
+## SECTION: Global Definitions                                  #
+##==============================================================#
+
+LAUNCH_PREFIX = "."
+MATH_PREFIX = "="
+DIRAGG_PREFIX = ">"
+
+##==============================================================#
 ## SECTION: Class Definitions                                   #
 ##==============================================================#
 
@@ -98,10 +106,10 @@ class HistManager:
             return None
 
     @staticmethod
-    def update(rownum):
+    def update(rownum, prefix=''):
         def m_wrapper(method):
             def a_wrapper(processor, pinput):
-                if pinput.was_hidden or pinput.cmd == '':
+                if pinput.was_hidden or pinput.cmd == prefix:
                     processor._histmgr._reset()
                 if pinput.key == KeyKind.PREV:
                     pout = ProcessorOutput()
@@ -310,16 +318,14 @@ class WinManager:
             return None
 
 class MathProcessor(SubprocessorBase):
-    PREFIX = "="
-
     @property
     def help(self) -> str:
-        return "Math processor prefix: " + MathProcessor.PREFIX
+        return "Math processor prefix: " + MATH_PREFIX
 
     def use_processor(self, pinput):
         if len(pinput.cmd) == 0:
             return False
-        return pinput.cmd[0] == MathProcessor.PREFIX
+        return pinput.cmd[0] == MATH_PREFIX
 
     def update(self, pinput):
         cmdtext = pinput.cmd.split("=", maxsplit=1)[1]
@@ -333,7 +339,6 @@ class MathProcessor(SubprocessorBase):
         return output
 
 class DirAggProcessor(SubprocessorBase):
-    PREFIX = ">"
     def __init__(self, cfg):
         self._path = cfg['locations_file']
         self._cfg = {}
@@ -342,7 +347,7 @@ class DirAggProcessor(SubprocessorBase):
 
     @property
     def help(self) -> str:
-        return "DirAgg processor prefix: " + DirAggProcessor.PREFIX
+        return "DirAgg processor prefix: " + DIRAGG_PREFIX
 
     def reload_config(self):
         self._cfg = yaml.safe_load(File(self._path).read())
@@ -352,7 +357,7 @@ class DirAggProcessor(SubprocessorBase):
         if len(pinput.cmd) == 0:
             self._selected = None
             return False
-        return pinput.cmd.startswith(DirAggProcessor.PREFIX)
+        return pinput.cmd.startswith(DIRAGG_PREFIX)
 
     def update(self, pinput):
         cmdtext = pinput.cmd[1:].lstrip()
@@ -397,7 +402,7 @@ class DirAggProcessor(SubprocessorBase):
         if pinput.is_complete or pinput.key == KeyKind.INTO:
             self._selected = pinput.selrow[0]
             output = ProcessorOutput()
-            output.add_cmd(DirAggProcessor.PREFIX)
+            output.add_cmd(DIRAGG_PREFIX)
             return output
         rows = []
         for k in self._cfg.keys():
@@ -415,21 +420,20 @@ class DirAggProcessor(SubprocessorBase):
         return output
 
 class LaunchProcessor(SubprocessorBase):
-    PREFIX = "."
     def __init__(self, cfg):
         self._path = cfg['launch_dir']
         self._histmgr = HistManager(cfg['hist_file'], 100)
 
     @property
     def help(self) -> str:
-        return "Launch processor prefix: " + LaunchProcessor.PREFIX
+        return "Launch processor prefix: " + LAUNCH_PREFIX
 
     def use_processor(self, pinput):
         if len(pinput.cmd) == 0:
             return False
-        return pinput.cmd[0] == LaunchProcessor.PREFIX
+        return pinput.cmd[0] == LAUNCH_PREFIX
 
-    @HistManager.update(0)
+    @HistManager.update(0, LAUNCH_PREFIX)
     def update(self, pinput):
         if pinput.is_complete:
             stem,ext = pinput.selrow
