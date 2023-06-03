@@ -94,7 +94,7 @@ class HistStore:
         self._hists = yaml.safe_load(self._histfile.read()) or []
 
 class HistManager:
-    def __init__(self, hist_path, max_entries=20):
+    def __init__(self, hist_path, max_entries=1000):
         self._hists = HistStore(hist_path, max_entries)
         self._reset()
 
@@ -422,7 +422,7 @@ class DirAggProcessor(SubprocessorBase):
 class LaunchProcessor(SubprocessorBase):
     def __init__(self, cfg):
         self._path = cfg['launch_dir']
-        self._histmgr = HistManager(cfg['hist_file'], 100)
+        self._histmgr = HistManager(cfg['hist_file'])
 
     @property
     def help(self) -> str:
