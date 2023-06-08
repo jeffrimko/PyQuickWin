@@ -31,6 +31,15 @@ DIRAGG_PREFIX = ">"
 ## SECTION: Class Definitions                                   #
 ##==============================================================#
 
+@dataclass(eq=True)
+class RowWinInfo:
+    # is_filtered: bool
+    # uid: int  #  NOTE: This could be the hash of original WinInfo
+    num: int
+    title: str
+    exe: str
+    alias: str
+
 class CommandKind(Enum):
     UNK = auto()
     TITLE = auto()
@@ -201,11 +210,20 @@ class WinManager:
     def reload_exclusions(self):
         self._excluder.reload_exclusions()
 
+    def _to_rowwinfo(self, rownum: int, winfo: WinInfo) -> RowWinInfo:
+        return RowWinInfo(
+            format_num(rownum + 1, len(self._allwins)),
+            winfo.title,
+            winfo.exe,
+            self._get_alias(winfo)
+        )
+
     def reset(self, orderby):
         self._allwins = []
         winlist = WinControl.list()
-        if orderby:
-            winlist.sort(key=attrgetter(orderby))
+        # if orderby:
+        #     winlist.sort(key=attrgetter(orderby))
+        num = 1
         for win in winlist:
             if self._excluder.is_excluded(win):
                 continue
@@ -244,27 +262,23 @@ class WinManager:
         if self._selected_outwinnum is None: return None
         rownum = self._outwinnums.index(self._selected_outwinnum)
         winfo = self._get_winfo(rownum)
+        print("selected", rownum, self._to_rowwinfo(rownum, winfo))
         return winfo
 
     @property
-    def selected_rownum(self):
+    def selected_rownum(self): # TODO: maybe call this selected_index?
         if self._selected_outwinnum is None: return None
         if not self._outwinnums: return None
         return self._outwinnums.index(self._selected_outwinnum)
 
-    @property
-    def len_outwins(self):
-        return len(self._outwinnums)
-
-    def iter_out(self):
+    def get_rowwins(self) -> List[RowWinInfo]:
+        outwins = []
         for num in self._outwinnums:
-            yield num, self._allwins[num]
+            win = self._allwins[num]
+            outwins.append(self._to_rowwinfo(num, win))
+        return outwins
 
-    @property
-    def len_allwins(self):
-        return len(self._allwins)
-
-    def get_alias(self, winfo):
+    def _get_alias(self, winfo: WinInfo):
         return self._alias.get(winfo, "")
 
     def set_alias(self, winfo, alias):
@@ -498,15 +512,16 @@ class Processor(ProcessorBase):
         self._winmgr.reload_exclusions()
 
     def _render_rows(self):
-        self._outtext.append(f'Windows found: {self._winmgr.len_outwins}')
+        wins = self._winmgr.get_rowwins()
+        self._outtext.append(f'Windows found: {len(wins)}')
         self._outtext.append(f'Ordering rows by: {self._orderby or "default"}')
         rows = []
-        for num, win in self._winmgr.iter_out():
+        for win in wins:
             rows.append([
-                format_num(num + 1, self._winmgr.len_allwins),
+                win.num,
                 win.title,
                 win.exe,
-                self._winmgr.get_alias(win)
+                win.alias,
             ])
         output = ProcessorOutput()
         output.add_out(self._render_outtext())
@@ -514,7 +529,7 @@ class Processor(ProcessorBase):
             ["Number", "Title", "Executable", "Alias"],
             [6, 74, 10, 10],
             rows,
-            self._winmgr.selected_rownum
+            self._winmgr.selected_rownum,
         )
         return output
 
