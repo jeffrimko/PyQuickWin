@@ -31,14 +31,20 @@ DIRAGG_PREFIX = ">"
 ## SECTION: Class Definitions                                   #
 ##==============================================================#
 
-@dataclass(eq=True)
-class RowWinInfo:
-    # is_filtered: bool
+@dataclass
+class ManagedWinInfo:
+    fnum: str
+    winfo: WinInfo
+    is_filtered: bool = False
     # uid: int  #  NOTE: This could be the hash of original WinInfo
-    num: int
-    title: str
-    exe: str
-    alias: str
+
+    @property
+    def title(self):
+        return self.winfo.title
+
+    @property
+    def exe(self):
+        return self.winfo.exe
 
 class CommandKind(Enum):
     UNK = auto()
@@ -210,20 +216,17 @@ class WinManager:
     def reload_exclusions(self):
         self._excluder.reload_exclusions()
 
-    def _to_rowwinfo(self, rownum: int, winfo: WinInfo) -> RowWinInfo:
-        return RowWinInfo(
-            format_num(rownum + 1, len(self._allwins)),
-            winfo.title,
-            winfo.exe,
-            self._get_alias(winfo)
+    def _to_minfo(self, num: int, winfo: WinInfo) -> ManagedWinInfo:
+        return ManagedWinInfo(
+            format_num(num + 1, len(self._allwins)),
+            winfo,
         )
 
-    def reset(self, orderby):
+    def reset(self):
         self._allwins = []
         winlist = WinControl.list()
         # if orderby:
         #     winlist.sort(key=attrgetter(orderby))
-        num = 1
         for win in winlist:
             if self._excluder.is_excluded(win):
                 continue
@@ -258,24 +261,25 @@ class WinManager:
                 self._selected_outwinnum = None
 
     @property
-    def selected_winfo(self):
+    def selected_win(self) -> ManagedWinInfo:
         if self._selected_outwinnum is None: return None
         rownum = self._outwinnums.index(self._selected_outwinnum)
         winfo = self._get_winfo(rownum)
-        print("selected", rownum, self._to_rowwinfo(rownum, winfo))
+        print("selected", rownum, self._to_minfo(rownum, winfo))
         return winfo
 
     @property
-    def selected_rownum(self): # TODO: maybe call this selected_index?
+    def selected_index(self) -> int:  # TODO: maybe call this selected_index?
         if self._selected_outwinnum is None: return None
         if not self._outwinnums: return None
         return self._outwinnums.index(self._selected_outwinnum)
 
-    def get_rowwins(self) -> List[RowWinInfo]:
+    @property
+    def wins(self) -> List[ManagedWinInfo]:
         outwins = []
         for num in self._outwinnums:
             win = self._allwins[num]
-            outwins.append(self._to_rowwinfo(num, win))
+            outwins.append(self._to_minfo(num, win))
         return outwins
 
     def _get_alias(self, winfo: WinInfo):
