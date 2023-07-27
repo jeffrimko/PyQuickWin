@@ -2,6 +2,7 @@
 ## SECTION: Imports                                             #
 ##==============================================================#
 
+from __future__ import annotations
 from dataclasses import dataclass, asdict
 from enum import Enum, auto
 from operator import attrgetter
@@ -31,21 +32,6 @@ DIRAGG_PREFIX = ">"
 ## SECTION: Class Definitions                                   #
 ##==============================================================#
 
-@dataclass
-class ManagedWinInfo:
-    fnum: str  # Formatted number
-    winfo: WinInfo
-    is_filtered: bool = False
-    # uid: int  #  NOTE: This could be the hash of original WinInfo
-
-    @property
-    def title(self) -> str:
-        return self.winfo.title
-
-    @property
-    def exe(self) -> str:
-        return self.winfo.exe
-
 class CommandKind(Enum):
     UNK = auto()
     TITLE = auto()
@@ -60,6 +46,39 @@ class CommandKind(Enum):
 class Command:
     kind: CommandKind
     text: str
+
+class ManagedWinInfo:
+    def __init__(self, fnum: str, winfo: WinInfo, on_set_alias: Callable[[ManagedWinInfo], None]):
+        self._fnum = fnum
+        self._winfo = winfo
+        self._on_set_alias = on_set_alias
+        self._alias = None
+        self._is_displayed = True
+
+    @property
+    def alias(self) -> str:
+        return self._alias
+
+    @alias.setter
+    def alias(self, value):
+        self._alias = value
+        self._on_set_alias(self)
+
+    @property
+    def fnum(self) -> str:
+        return self._fnum
+
+    @property
+    def winfo(self) -> WinInfo:
+        return self._winfo
+
+    @property
+    def title(self) -> str:
+        return self._winfo.title
+
+    @property
+    def exe(self) -> str:
+        return self._winfo.exe
 
 class HistStore:
     def __init__(self, hist_path, max_entries):
@@ -219,8 +238,12 @@ class WinManager:
     def _to_minfo(self, num: int, winfo: WinInfo) -> ManagedWinInfo:
         return ManagedWinInfo(
             format_num(num + 1, len(self._allwins)),
-            winfo
+            winfo,
+            self._save_alias
         )
+
+    def _save_alias(self, minfo: ManagedWinInfo):
+        print("_save_alias", minfo)
 
     def reset(self):
         self._allwins = []
@@ -261,7 +284,7 @@ class WinManager:
                 self._selected_outwinnum = None
 
     @property
-    def selected_win(self) -> ManagedWinInfo:
+    def selected_win(self) -> Optional[ManagedWinInfo]:
         if self._selected_outwinnum is None: return None
         rownum = self._outwinnums.index(self._selected_outwinnum)
         winfo = self._get_winfo(rownum)
@@ -587,7 +610,9 @@ class Processor(ProcessorBase):
                 return ProcessorOutput(hide=True)
             return None
         if cmd.kind == CommandKind.SET:
-            self._winmgr.set_alias(winfo, cmd.text)
+            print(winfo)
+            winfo.alias = cmd.text
+            # self._winmgr.set_alias(winfo, cmd.text)
             self._outtext.append('Set alias: ' + cmd.text)
             output = ProcessorOutput()
             output.add_cmd('')
