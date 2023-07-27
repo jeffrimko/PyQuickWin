@@ -5,7 +5,7 @@
 from dataclasses import dataclass, asdict
 from enum import Enum, auto
 from operator import attrgetter
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional
 import configparser
 import csv
 import sys
@@ -33,17 +33,17 @@ DIRAGG_PREFIX = ">"
 
 @dataclass
 class ManagedWinInfo:
-    fnum: str
+    fnum: str  # Formatted number
     winfo: WinInfo
     is_filtered: bool = False
     # uid: int  #  NOTE: This could be the hash of original WinInfo
 
     @property
-    def title(self):
+    def title(self) -> str:
         return self.winfo.title
 
     @property
-    def exe(self):
+    def exe(self) -> str:
         return self.winfo.exe
 
 class CommandKind(Enum):
@@ -219,7 +219,7 @@ class WinManager:
     def _to_minfo(self, num: int, winfo: WinInfo) -> ManagedWinInfo:
         return ManagedWinInfo(
             format_num(num + 1, len(self._allwins)),
-            winfo,
+            winfo
         )
 
     def reset(self):
@@ -282,7 +282,7 @@ class WinManager:
             outwins.append(self._to_minfo(num, win))
         return outwins
 
-    def _get_alias(self, winfo: WinInfo):
+    def get_alias(self, winfo: WinInfo):
         return self._alias.get(winfo, "")
 
     def set_alias(self, winfo, alias):
@@ -505,7 +505,8 @@ class Processor(ProcessorBase):
         self._winmgr.update(pinput)
         cmds = parse(pinput.cmdtext.text)
         if (not pinput.cmdtext.text) and (not cmds):
-            self._winmgr.reset(self._orderby)
+            # self._winmgr.reset(self._orderby)
+            self._winmgr.reset()
 
         cmd_on_complete = self._handle_incomplete(cmds)
         if pinput.is_complete:
@@ -516,16 +517,16 @@ class Processor(ProcessorBase):
         self._winmgr.reload_exclusions()
 
     def _render_rows(self):
-        wins = self._winmgr.get_rowwins()
+        wins = self._winmgr.wins
         self._outtext.append(f'Windows found: {len(wins)}')
         self._outtext.append(f'Ordering rows by: {self._orderby or "default"}')
         rows = []
         for win in wins:
             rows.append([
-                win.num,
+                win.fnum,
                 win.title,
                 win.exe,
-                win.alias,
+                self._winmgr.get_alias(win)
             ])
         output = ProcessorOutput()
         output.add_out(self._render_outtext())
@@ -533,7 +534,7 @@ class Processor(ProcessorBase):
             ["Number", "Title", "Executable", "Alias"],
             [6, 74, 10, 10],
             rows,
-            self._winmgr.selected_rownum,
+            self._winmgr.selected_index,
         )
         return output
 
@@ -556,7 +557,7 @@ class Processor(ProcessorBase):
             elif cmd.kind == CommandKind.GET:
                 self._winmgr.filter(cmd.text)
             elif cmd.kind == CommandKind.LIM:
-                winfo = self._winmgr.selected_winfo
+                winfo = self._winmgr.selected_win
                 self._winmgr.filter(winfo.exe, lambda w: w.exe, exact=True)
             elif cmd.kind == CommandKind.SET:
                 cmd_on_complete = cmd
@@ -579,7 +580,7 @@ class Processor(ProcessorBase):
         return False
 
     def _handle_complete(self, cmd):
-        winfo = self._winmgr.selected_winfo
+        winfo = self._winmgr.selected_win
         if not cmd:
             if winfo:
                 WinControl.show(winfo)
