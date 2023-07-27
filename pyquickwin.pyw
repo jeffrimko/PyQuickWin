@@ -55,6 +55,9 @@ class ManagedWinInfo:
         self._alias = None
         self._is_displayed = True
 
+    def is_displayed(self) -> bool:
+        return self._is_displayed
+
     @property
     def alias(self) -> str:
         return self._alias
@@ -222,14 +225,14 @@ class WinExcluder:
 class WinManager:
     def __init__(self, alias_path, exclude_path):
         #: List of all known windows.
-        self._allwins: List[WinInfo] = []
+        self._allwins: List[ManagedWinInfo] = []
 
         #: Index numbers of known windows included in output.
-        self._outwinnums: List[int] = []
+        # self._outwinnums: List[int] = []
 
         self._alias_file = File(alias_path, make=True)
-        self._alias: Dict[WinInfo, str] = self._load_alias_file()
-        self._selected_outwinnum = 0
+        # self._alias: Dict[WinInfo, str] = self._load_alias_file()
+        # self._selected_outwinnum = 0
         self._excluder = WinExcluder(exclude_path)
 
     def reload_exclusions(self):
@@ -250,20 +253,29 @@ class WinManager:
         winlist = WinControl.list()
         # if orderby:
         #     winlist.sort(key=attrgetter(orderby))
+        num = 0
         for win in winlist:
             if self._excluder.is_excluded(win):
                 continue
-            self._allwins.append(win)
-        self._reset_outwinnums()
+            self._allwins.append(
+                ManagedWinInfo(
+                    format_num(num + 1, len(self._allwins)),
+                    win,
+                    self._save_alias
+                )
+            )
+            num += 1
+        # self._reset_outwinnums()
 
     def update(self, pinput):
-        self._selected_outwinnum = self._get_outwinnum(pinput.lstview.selnum)
-        if pinput.was_hidden:
-            self._selected_outwinnum = 0
-        self._reset_outwinnums()
+        pass
+        # self._selected_outwinnum = self._get_outwinnum(pinput.lstview.selnum)
+        # if pinput.was_hidden:
+        #     self._selected_outwinnum = 0
+        # self._reset_outwinnums()
 
     def filter(self, cmdtext, getwintext=None, exact=False):
-        default = lambda w: self._alias.get(w)
+        default = lambda w: w.alias
         def compare(wnum):
             wintext = (getwintext or default)(self._allwins[wnum])
             if wintext is None:
@@ -271,42 +283,40 @@ class WinManager:
             if exact:
                 return StrCompare.exact(cmdtext, wintext)
             return StrCompare.choice(cmdtext, wintext)
-        self._outwinnums = list(filter(compare, self._outwinnums))
-        try:
-            self._outwinnums.index(self._selected_outwinnum)
-        except ValueError:
-            if self._outwinnums and self._selected_outwinnum is not None:
-                self._selected_outwinnum = min(
-                    self._outwinnums,
-                    key=lambda n: abs(n - self._selected_outwinnum)
-                )
-            else:
-                self._selected_outwinnum = None
+        # self._outwinnums = list(filter(compare, self._outwinnums))
+        # try:
+        #     self._outwinnums.index(self._selected_outwinnum)
+        # except ValueError:
+        #     if self._outwinnums and self._selected_outwinnum is not None:
+        #         self._selected_outwinnum = min(
+        #             self._outwinnums,
+        #             key=lambda n: abs(n - self._selected_outwinnum)
+        #         )
+        #     else:
+        #         self._selected_outwinnum = None
 
     @property
     def selected_win(self) -> Optional[ManagedWinInfo]:
-        if self._selected_outwinnum is None: return None
-        rownum = self._outwinnums.index(self._selected_outwinnum)
-        winfo = self._get_winfo(rownum)
-        print("selected", rownum, self._to_minfo(rownum, winfo))
-        return winfo
+        return self._allwins[0]
+        # if self._selected_outwinnum is None: return None
+        # rownum = self._outwinnums.index(self._selected_outwinnum)
+        # winfo = self._get_winfo(rownum)
+        # print("selected", rownum, self._to_minfo(rownum, winfo))
+        # return winfo
 
     @property
     def selected_index(self) -> int:  # TODO: maybe call this selected_index?
-        if self._selected_outwinnum is None: return None
-        if not self._outwinnums: return None
-        return self._outwinnums.index(self._selected_outwinnum)
+        return 0
+        # if self._selected_outwinnum is None: return None
+        # if not self._outwinnums: return None
+        # return self._outwinnums.index(self._selected_outwinnum)
 
     @property
     def wins(self) -> List[ManagedWinInfo]:
-        outwins = []
-        for num in self._outwinnums:
-            win = self._allwins[num]
-            outwins.append(self._to_minfo(num, win))
-        return outwins
+        return [win for win in self._allwins if win.is_displayed]
 
-    def get_alias(self, winfo: WinInfo):
-        return self._alias.get(winfo, "")
+    # def get_alias(self, winfo: WinInfo):
+    #     return self._alias.get(winfo, "")
 
     def set_alias(self, winfo, alias):
         alias_lookup = dict(zip(self._alias.values(), self._alias.keys()))
@@ -341,14 +351,14 @@ class WinManager:
             alias[WinInfo(**i[0])] = i[1]
         return alias
 
-    def _get_winfo(self, rownum) -> Optional[WinInfo]:
-        try:
-            return self._allwins[self._outwinnums[rownum]]
-        except IndexError:
-            return None
+    # def _get_winfo(self, rownum) -> Optional[WinInfo]:
+    #     try:
+    #         return self._allwins[self._outwinnums[rownum]]
+    #     except IndexError:
+    #         return None
 
-    def _reset_outwinnums(self):
-        self._outwinnums = list(range(len(self._allwins)))
+    # def _reset_outwinnums(self):
+    #     self._outwinnums = list(range(len(self._allwins)))
 
     def _get_outwinnum(self, rownum):
         if not self._outwinnums:
@@ -549,7 +559,7 @@ class Processor(ProcessorBase):
                 win.fnum,
                 win.title,
                 win.exe,
-                self._winmgr.get_alias(win)
+                win.alias
             ])
         output = ProcessorOutput()
         output.add_out(self._render_outtext())
