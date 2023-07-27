@@ -52,11 +52,16 @@ class ManagedWinInfo:
         self._fnum = fnum
         self._winfo = winfo
         self._on_set_alias = on_set_alias
-        self._alias = None
+        self._alias = ""
         self._is_displayed = True
 
+    @property
     def is_displayed(self) -> bool:
         return self._is_displayed
+
+    @is_displayed.setter
+    def is_displayed(self, value):
+        self._is_displayed = value
 
     @property
     def alias(self) -> str:
@@ -231,6 +236,7 @@ class WinManager:
         # self._outwinnums: List[int] = []
 
         self._alias_file = File(alias_path, make=True)
+        self._selected_win = None
         # self._alias: Dict[WinInfo, str] = self._load_alias_file()
         # self._selected_outwinnum = 0
         self._excluder = WinExcluder(exclude_path)
@@ -253,36 +259,42 @@ class WinManager:
         winlist = WinControl.list()
         # if orderby:
         #     winlist.sort(key=attrgetter(orderby))
+        self._selected_win = None
         num = 0
         for win in winlist:
             if self._excluder.is_excluded(win):
                 continue
-            self._allwins.append(
-                ManagedWinInfo(
-                    format_num(num + 1, len(self._allwins)),
-                    win,
-                    self._save_alias
-                )
+            win = ManagedWinInfo(
+                format_num(num + 1, len(self._allwins)),
+                win,
+                self._save_alias
             )
+            self._allwins.append(win)
+            if num == 0:
+                self._selected_win = win
             num += 1
         # self._reset_outwinnums()
 
     def update(self, pinput):
-        pass
+        if pinput.lstview.selnum >= 0:
+            self._selected_win = self.wins[pinput.lstview.selnum]
         # self._selected_outwinnum = self._get_outwinnum(pinput.lstview.selnum)
         # if pinput.was_hidden:
         #     self._selected_outwinnum = 0
         # self._reset_outwinnums()
 
     def filter(self, cmdtext, getwintext=None, exact=False):
-        default = lambda w: w.alias
-        def compare(wnum):
-            wintext = (getwintext or default)(self._allwins[wnum])
+        def default(minfo: ManagedWinInfo):
+            return minfo.alias
+        def should_display(minfo: ManagedWinInfo) -> bool:
+            wintext = (getwintext or default)(minfo)
             if wintext is None:
                 return False
             if exact:
                 return StrCompare.exact(cmdtext, wintext)
             return StrCompare.choice(cmdtext, wintext)
+        for win in self._allwins:
+            win.is_displayed = should_display(win)
         # self._outwinnums = list(filter(compare, self._outwinnums))
         # try:
         #     self._outwinnums.index(self._selected_outwinnum)
@@ -297,7 +309,8 @@ class WinManager:
 
     @property
     def selected_win(self) -> Optional[ManagedWinInfo]:
-        return self._allwins[0]
+        # return self._allwins[0]
+        self._selected_win
         # if self._selected_outwinnum is None: return None
         # rownum = self._outwinnums.index(self._selected_outwinnum)
         # winfo = self._get_winfo(rownum)
@@ -306,7 +319,10 @@ class WinManager:
 
     @property
     def selected_index(self) -> int:  # TODO: maybe call this selected_index?
-        return 0
+        index = self.wins.index(self._selected_win)
+        print(index)
+        return index
+        # return self._selected_index
         # if self._selected_outwinnum is None: return None
         # if not self._outwinnums: return None
         # return self._outwinnums.index(self._selected_outwinnum)
@@ -318,28 +334,29 @@ class WinManager:
     # def get_alias(self, winfo: WinInfo):
     #     return self._alias.get(winfo, "")
 
-    def set_alias(self, winfo, alias):
-        alias_lookup = dict(zip(self._alias.values(), self._alias.keys()))
-        alias_winfo = alias_lookup.get(alias, None)
-        self._alias.pop(alias_winfo, None)
-        self._alias[winfo] = alias
-        self._save_alias_file()
+    # def set_alias(self, winfo, alias):
+    #     alias_lookup = dict(zip(self._alias.values(), self._alias.keys()))
+    #     alias_winfo = alias_lookup.get(alias, None)
+    #     self._alias.pop(alias_winfo, None)
+    #     self._alias[winfo] = alias
+    #     self._save_alias_file()
 
     def delete_all_alias(self):
-        self._alias = {}
+        # self._alias = {}
         self._save_alias_file()
 
     def _save_alias_file(self):
-        outlist = []
-        prune = []
-        for k,v in self._alias.items():
-            if not v or k not in self._allwins:
-                prune.append(k)
-            else:
-                outlist.append([asdict(k), v])
-        self._alias_file.write(ujson.dumps(outlist))
-        for p in prune:
-            del self._alias[p]
+        pass
+        # outlist = []
+        # prune = []
+        # for k,v in self._alias.items():
+        #     if not v or k not in self._allwins:
+        #         prune.append(k)
+        #     else:
+        #         outlist.append([asdict(k), v])
+        # self._alias_file.write(ujson.dumps(outlist))
+        # for p in prune:
+        #     del self._alias[p]
 
     def _load_alias_file(self):
         alias = {}
