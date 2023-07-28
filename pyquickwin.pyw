@@ -56,6 +56,9 @@ class ManagedWinInfo:
         # self._alias = ""
         self._is_displayed = True
 
+    def __repr__(self):
+        return self.title
+
     @property
     def is_displayed(self) -> bool:
         return self._is_displayed
@@ -296,8 +299,16 @@ class WinManager:
             if exact:
                 return StrCompare.exact(cmdtext, wintext)
             return StrCompare.choice(cmdtext, wintext)
+        displayed = []
         for win in self._allwins:
             win.is_displayed = should_display(win)
+            should_update_selected_win = not win.is_displayed and win is self._selected_win
+            if should_update_selected_win:
+                if len(displayed) > 0:
+                    self._selected_win = displayed[-1]
+                else: self._selected_win = None
+            if win.is_displayed:
+                displayed.append(win)
         # self._outwinnums = list(filter(compare, self._outwinnums))
         # try:
         #     self._outwinnums.index(self._selected_outwinnum)
@@ -322,17 +333,25 @@ class WinManager:
 
     @property
     def selected_index(self) -> int:  # TODO: maybe call this selected_index?
-        print("SELECTED_INDEX", self._selected_win)
         try:
             return self.wins.index(self._selected_win)
         except ValueError:
-            print("VALERR", self._selected_win)
-            index = 0
-            for win in self._allwins:
-                if win == self._selected_win:
-                    return index
-                if win.is_displayed:
-                    index += 1
+            print("ValueError")
+            print(self._selected_win)
+            print(self.wins)
+            print(self._allwins)
+            print(self._allwins.index(self._selected_win))
+        # print("SELECTED_INDEX", self._selected_win)
+        # try:
+        #     return self.wins.index(self._selected_win)
+        # except ValueError:
+        #     print("VALERR", self._selected_win)
+        #     index = 0
+        #     for win in self._allwins:
+        #         if win == self._selected_win:
+        #             return index
+        #         if win.is_displayed:
+        #             index += 1
 
         # return self._selected_index
         # if self._selected_outwinnum is None: return None
