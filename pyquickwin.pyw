@@ -263,20 +263,27 @@ class WinManager:
         winlist = WinControl.list()
         # if orderby:
         #     winlist.sort(key=attrgetter(orderby))
-        # self._selected_win = None
+        selected_winfo = None
+        if self._selected_win:
+            selected_winfo = self._selected_win.winfo
+        self._selected_win = None
         num = 0
-        for win in winlist:
-            if self._excluder.is_excluded(win):
+        for winfo in winlist:
+            if self._excluder.is_excluded(winfo):
                 continue
-            win = ManagedWinInfo(
+            mwin = ManagedWinInfo(
                 format_num(num + 1, len(winlist)),
-                win,
+                winfo,
                 # self._save_alias
             )
-            self._allwins.append(win)
-            if num == 0 and not self._selected_win:
-                self._selected_win = win
+            self._allwins.append(mwin)
+            if winfo == selected_winfo:
+                self._selected_win = mwin
+            # if num == 0 and not self._selected_win:
+            #     self._selected_win = mwin
             num += 1
+        if not self._selected_win and len(self._allwins) > 0:
+            self._selected_win = self._allwins[0]
         # self._reset_outwinnums()
 
     def update(self, pinput):
@@ -333,6 +340,8 @@ class WinManager:
 
     @property
     def selected_index(self) -> int:  # TODO: maybe call this selected_index?
+        if not self._selected_win:
+            return 0
         try:
             return self.wins.index(self._selected_win)
         except ValueError:
@@ -661,16 +670,16 @@ class Processor(ProcessorBase):
         return False
 
     def _handle_complete(self, cmd):
-        winfo = self._winmgr.selected_win
+        mwin = self._winmgr.selected_win
         if not cmd:
-            if winfo:
-                WinControl.show(winfo)
+            if mwin:
+                WinControl.show(mwin.winfo)
                 return ProcessorOutput(hide=True)
             return None
         if cmd.kind == CommandKind.SET:
-            print(winfo)
-            winfo.alias = cmd.text
-            # self._winmgr.set_alias(winfo, cmd.text)
+            # print(winfo)
+            # winfo.alias = cmd.text
+            self._winmgr.set_alias(winfo, cmd.text)
             self._outtext.append('Set alias: ' + cmd.text)
             output = ProcessorOutput()
             output.add_cmd('')
