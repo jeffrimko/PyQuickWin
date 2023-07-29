@@ -5,6 +5,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, asdict
 from enum import Enum, auto
+from operator import attrgetter
 from typing import Dict, List, Optional
 import configparser
 import csv
@@ -225,16 +226,16 @@ class WinManager:
         self._excluder = WinExcluder(exclude_path)
         self._alias_file = File(alias_path, make=True)
         self._alias: Dict[WinInfo, str] = self._load_alias_file()
+        self._orderby = None
 
     def reload_exclusions(self):
         self._excluder.reload_exclusions()
 
     def reset(self):
         self._allwins = []
+        self._orderby = None
         winlist = WinControl.list()
-        selected_winfo = None
-        if self._selected_win:
-            selected_winfo = self._selected_win.winfo
+        selected_winfo = self._selected_win.winfo if self._selected_win else None
         self._selected_win = None
         num = 0
         for winfo in winlist:
@@ -276,6 +277,24 @@ class WinManager:
             if win.is_displayed:
                 displayed.append(win)
 
+    def set_orderby(self, orderby) -> bool:
+        if not orderby:
+            self._orderby = None
+            return False
+        def check_orderby(validname):
+            if validname.startswith(orderby):
+                self._orderby = validname
+                return True
+        if check_orderby('title'): return True
+        if check_orderby('exe'): return True
+        if check_orderby('alias'): return True
+        self._orderby = None
+        return False
+
+    @property
+    def orderby(self) -> Optional[str]:
+        return self._orderby
+
     @property
     def selected_win(self) -> Optional[ManagedWindow]:
         return self._selected_win
@@ -288,7 +307,10 @@ class WinManager:
 
     @property
     def wins(self) -> List[ManagedWindow]:
-        return [win for win in self._allwins if win.is_displayed]
+        wins = [win for win in self._allwins if win.is_displayed]
+        if self._orderby:
+            return sorted(wins, key=lambda w: getattr(w, self._orderby))
+        return wins
 
     def get_alias(self, mwin: ManagedWindow) -> str:
         return self._alias.get(mwin.winfo, "")
@@ -548,6 +570,8 @@ class Processor(ProcessorBase):
             elif cmd.kind == CommandKind.LIM:
                 winfo = self._winmgr.selected_win
                 self._winmgr.filter(winfo.exe, lambda w: w.exe, exact=True)
+            elif cmd.kind == CommandKind.ORD:
+                self._winmgr.set_orderby(cmd.text)
             elif cmd.kind == CommandKind.SET:
                 cmd_on_complete = cmd
             elif cmd.kind == CommandKind.ORD:
@@ -557,16 +581,6 @@ class Processor(ProcessorBase):
             elif cmd.kind == CommandKind.UNK:
                 cmd_on_complete = cmd
         return cmd_on_complete
-
-    def _set_orderby(self, orderby):
-        lorderby = orderby.lower()
-        if lorderby == 'default':
-            self._orderby = ""
-            return True
-        elif lorderby in ['title', 'exe']:
-            self._orderby = lorderby
-            return True
-        return False
 
     def _handle_complete(self, cmd):
         mwin = self._winmgr.selected_win
@@ -581,12 +595,6 @@ class Processor(ProcessorBase):
             output = ProcessorOutput()
             output.add_cmd('')
             return output
-        if cmd.kind == CommandKind.ORD:
-            if not self._set_orderby(cmd.text):
-                curr = self._orderby or "default"
-                self._outtext.append(
-                    f'Order by change invalid, current value: {curr}'
-                )
         elif cmd.kind == CommandKind.DEL:
             self._winmgr.delete_all_alias()
             self._outtext.append("All aliases deleted")
