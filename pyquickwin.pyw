@@ -281,13 +281,13 @@ class WinManager:
         if not orderby:
             self._orderby = None
             return False
-        def check_orderby(validname):
+        def set_if_valid(validname):
             if validname.startswith(orderby):
                 self._orderby = validname
                 return True
-        if check_orderby('title'): return True
-        if check_orderby('exe'): return True
-        if check_orderby('alias'): return True
+        if set_if_valid('title'): return True
+        if set_if_valid('exe'): return True
+        if set_if_valid('alias'): return True
         self._orderby = None
         return False
 
