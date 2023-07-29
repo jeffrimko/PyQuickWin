@@ -5,8 +5,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, asdict
 from enum import Enum, auto
-from operator import attrgetter
-from typing import Callable, Dict, List, Optional
+from typing import Dict, List, Optional
 import configparser
 import csv
 import sys
@@ -47,13 +46,10 @@ class Command:
     kind: CommandKind
     text: str
 
-class ManagedWinInfo:
-    # def __init__(self, fnum: str, winfo: WinInfo, on_set_alias: Callable[[ManagedWinInfo], None]):
+class ManagedWindow:
     def __init__(self, fnum: str, winfo: WinInfo):
         self._fnum = fnum
         self._winfo = winfo
-        # self._on_set_alias = on_set_alias
-        # self._alias = ""
         self._is_displayed = True
 
     def __repr__(self):
@@ -66,15 +62,6 @@ class ManagedWinInfo:
     @is_displayed.setter
     def is_displayed(self, value):
         self._is_displayed = value
-
-    # @property
-    # def alias(self) -> str:
-    #     return self._alias
-    #
-    # @alias.setter
-    # def alias(self, value):
-    #     self._alias = value
-    #     self._on_set_alias(self)
 
     @property
     def fnum(self) -> str:
@@ -233,36 +220,18 @@ class WinExcluder:
 
 class WinManager:
     def __init__(self, alias_path, exclude_path):
-        #: List of all known windows.
-        self._allwins: List[ManagedWinInfo] = []
-
-        #: Index numbers of known windows included in output.
-        # self._outwinnums: List[int] = []
-
-        self._alias_file = File(alias_path, make=True)
+        self._allwins: List[ManagedWindow] = []  #: List of all known (not excluded) windows.
         self._selected_win = None
-        self._alias: Dict[WinInfo, str] = self._load_alias_file()
-        # self._selected_outwinnum = 0
         self._excluder = WinExcluder(exclude_path)
+        self._alias_file = File(alias_path, make=True)
+        self._alias: Dict[WinInfo, str] = self._load_alias_file()
 
     def reload_exclusions(self):
         self._excluder.reload_exclusions()
 
-    def _to_mwin(self, num: int, winfo: WinInfo) -> ManagedWinInfo:
-        return ManagedWinInfo(
-            format_num(num + 1, len(self._allwins)),
-            winfo,
-            self._save_alias
-        )
-
-    # def _save_alias(self, minfo: ManagedWinInfo):
-    #     print("_save_alias", minfo)
-
     def reset(self):
         self._allwins = []
         winlist = WinControl.list()
-        # if orderby:
-        #     winlist.sort(key=attrgetter(orderby))
         selected_winfo = None
         if self._selected_win:
             selected_winfo = self._selected_win.winfo
@@ -271,35 +240,25 @@ class WinManager:
         for winfo in winlist:
             if self._excluder.is_excluded(winfo):
                 continue
-            mwin = ManagedWinInfo(
+            mwin = ManagedWindow(
                 format_num(num + 1, len(winlist)),
                 winfo,
-                # self._save_alias
             )
             self._allwins.append(mwin)
             if winfo == selected_winfo:
                 self._selected_win = mwin
-            # if num == 0 and not self._selected_win:
-            #     self._selected_win = mwin
             num += 1
         if not self._selected_win and len(self._allwins) > 0:
             self._selected_win = self._allwins[0]
-        # self._reset_outwinnums()
 
     def update(self, pinput):
         if pinput.lstview.selnum >= 0:
             self._selected_win = self.wins[pinput.lstview.selnum]
-        print("UPDATE", self._selected_win)
-        # self._selected_outwinnum = self._get_outwinnum(pinput.lstview.selnum)
-        # if pinput.was_hidden:
-        #     self._selected_outwinnum = 0
-        # self._reset_outwinnums()
 
     def filter(self, cmdtext, getwintext=None, exact=False):
-        def default(mwin: ManagedWinInfo):
+        def default(mwin: ManagedWindow):
             return self.get_alias(mwin)
-            # return minfo.alias
-        def should_display(mwin: ManagedWinInfo) -> bool:
+        def should_display(mwin: ManagedWindow) -> bool:
             wintext = (getwintext or default)(mwin)
             if wintext is None:
                 return False
@@ -316,65 +275,25 @@ class WinManager:
                 else: self._selected_win = None
             if win.is_displayed:
                 displayed.append(win)
-        # self._outwinnums = list(filter(compare, self._outwinnums))
-        # try:
-        #     self._outwinnums.index(self._selected_outwinnum)
-        # except ValueError:
-        #     if self._outwinnums and self._selected_outwinnum is not None:
-        #         self._selected_outwinnum = min(
-        #             self._outwinnums,
-        #             key=lambda n: abs(n - self._selected_outwinnum)
-        #         )
-        #     else:
-        #         self._selected_outwinnum = None
 
     @property
-    def selected_win(self) -> Optional[ManagedWinInfo]:
+    def selected_win(self) -> Optional[ManagedWindow]:
         return self._selected_win
-        # return self._allwins[0]
-        # if self._selected_outwinnum is None: return None
-        # rownum = self._outwinnums.index(self._selected_outwinnum)
-        # winfo = self._get_winfo(rownum)
-        # print("selected", rownum, self._to_minfo(rownum, winfo))
-        # return winfo
 
     @property
-    def selected_index(self) -> int:  # TODO: maybe call this selected_index?
+    def selected_index(self) -> int:
         if not self._selected_win:
             return 0
-        try:
-            return self.wins.index(self._selected_win)
-        except ValueError:
-            print("ValueError")
-            print(self._selected_win)
-            print(self.wins)
-            print(self._allwins)
-            print(self._allwins.index(self._selected_win))
-        # print("SELECTED_INDEX", self._selected_win)
-        # try:
-        #     return self.wins.index(self._selected_win)
-        # except ValueError:
-        #     print("VALERR", self._selected_win)
-        #     index = 0
-        #     for win in self._allwins:
-        #         if win == self._selected_win:
-        #             return index
-        #         if win.is_displayed:
-        #             index += 1
-
-        # return self._selected_index
-        # if self._selected_outwinnum is None: return None
-        # if not self._outwinnums: return None
-        # return self._outwinnums.index(self._selected_outwinnum)
+        return self.wins.index(self._selected_win)
 
     @property
-    def wins(self) -> List[ManagedWinInfo]:
+    def wins(self) -> List[ManagedWindow]:
         return [win for win in self._allwins if win.is_displayed]
 
-    def get_alias(self, mwin: ManagedWinInfo) -> str:
+    def get_alias(self, mwin: ManagedWindow) -> str:
         return self._alias.get(mwin.winfo, "")
 
-    def set_alias(self, mwin: ManagedWinInfo, alias: str):
+    def set_alias(self, mwin: ManagedWindow, alias: str):
         alias_lookup = dict(zip(self._alias.values(), self._alias.keys()))
         alias_winfo = alias_lookup.get(alias, None)
         self._alias.pop(alias_winfo, None)
@@ -407,23 +326,6 @@ class WinManager:
         for i in inlist:
             alias[WinInfo(**i[0])] = i[1]
         return alias
-
-    # def _get_winfo(self, rownum) -> Optional[WinInfo]:
-    #     try:
-    #         return self._allwins[self._outwinnums[rownum]]
-    #     except IndexError:
-    #         return None
-
-    # def _reset_outwinnums(self):
-    #     self._outwinnums = list(range(len(self._allwins)))
-
-    def _get_outwinnum(self, rownum):
-        if not self._outwinnums:
-            return None
-        try:
-            return self._outwinnums[rownum if rownum > 0 else 0]
-        except IndexError:
-            return None
 
 class MathProcessor(SubprocessorBase):
     @property
@@ -571,7 +473,6 @@ class LaunchProcessor(SubprocessorBase):
 class Processor(ProcessorBase):
     def __init__(self, cfg, subprocessors=None):
         self._outtext: List[str] = []
-        self._orderby = ""
         self._winmgr = WinManager(cfg['alias_file'], cfg['exclude_file'])
         self._histmgr = HistManager(cfg['hist_file'])
         self._subprocessors = subprocessors or []
@@ -595,7 +496,6 @@ class Processor(ProcessorBase):
         self._winmgr.update(pinput)
         cmds = parse(pinput.cmdtext.text)
         if (not pinput.cmdtext.text) and (not cmds):
-            # self._winmgr.reset(self._orderby)
             self._winmgr.reset()
 
         cmd_on_complete = self._handle_incomplete(cmds)
@@ -609,7 +509,6 @@ class Processor(ProcessorBase):
     def _render_rows(self):
         wins = self._winmgr.wins
         self._outtext.append(f'Windows found: {len(wins)}')
-        self._outtext.append(f'Ordering rows by: {self._orderby or "default"}')
         rows = []
         for win in wins:
             rows.append([
@@ -617,7 +516,6 @@ class Processor(ProcessorBase):
                 win.title,
                 win.exe,
                 self._winmgr.get_alias(win)
-                # win.alias
             ])
         output = ProcessorOutput()
         output.add_out(self._render_outtext())
@@ -678,8 +576,6 @@ class Processor(ProcessorBase):
                 return ProcessorOutput(hide=True)
             return None
         if cmd.kind == CommandKind.SET:
-            # print(winfo)
-            # winfo.alias = cmd.text
             self._winmgr.set_alias(mwin, cmd.text)
             self._outtext.append('Set alias: ' + cmd.text)
             output = ProcessorOutput()
