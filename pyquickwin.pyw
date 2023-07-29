@@ -47,8 +47,8 @@ class Command:
     text: str
 
 class ManagedWindow:
-    def __init__(self, fnum: str, winfo: WinInfo):
-        self._fnum = fnum
+    def __init__(self, num: int, winfo: WinInfo):
+        self._num = num
         self._winfo = winfo
         self._is_displayed = True
 
@@ -64,8 +64,8 @@ class ManagedWindow:
         self._is_displayed = value
 
     @property
-    def fnum(self) -> str:
-        return self._fnum
+    def num(self) -> str:
+        return self._num
 
     @property
     def winfo(self) -> WinInfo:
@@ -236,12 +236,12 @@ class WinManager:
         winlist = WinControl.list()
         selected_winfo = self._selected_win.winfo if self._selected_win else None
         self._selected_win = None
-        num = 0
+        num = 1
         for winfo in winlist:
             if self._excluder.is_excluded(winfo):
                 continue
             mwin = ManagedWindow(
-                format_num(num + 1, len(winlist)),
+                num,
                 winfo,
             )
             self._allwins.append(mwin)
@@ -542,7 +542,7 @@ class Processor(ProcessorBase):
         rows = []
         for win in wins:
             rows.append([
-                win.fnum,
+                format_num(win.num, len(wins)),
                 win.title,
                 win.exe,
                 self._winmgr.get_alias(win)
