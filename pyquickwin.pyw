@@ -599,7 +599,10 @@ class Processor(ProcessorBase):
             return None
         if cmd.kind == CommandKind.SET:
             self._winmgr.set_alias(mwin, cmd.text)
-            self._outtext.append('Set alias: ' + cmd.text)
+            if cmd.text:
+                self._outtext.append('Set alias: ' + cmd.text)
+            else:
+                self._outtext.append('Cleared alias')
             output = ProcessorOutput()
             output.add_cmd('')
             return output
