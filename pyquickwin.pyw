@@ -261,7 +261,7 @@ class WinManager:
             return self.get_alias(mwin)
         def should_display(mwin: ManagedWindow) -> bool:
             wintext = (getwintext or default)(mwin)
-            if wintext is None:
+            if not wintext:
                 return False
             if exact:
                 return StrCompare.exact(cmdtext, wintext)
@@ -605,7 +605,6 @@ class Processor(ProcessorBase):
         return output
 
 class StrCompare:
-
     def _argcheck(method):
         def wrapper(test, target):
             if not test: return True
