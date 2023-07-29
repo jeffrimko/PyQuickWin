@@ -371,14 +371,14 @@ class WinManager:
     def wins(self) -> List[ManagedWinInfo]:
         return [win for win in self._allwins if win.is_displayed]
 
-    def get_alias(self, mwin: ManagedWinInfo):
-        return self._alias.get(mwin, "")
+    def get_alias(self, mwin: ManagedWinInfo) -> str:
+        return self._alias.get(mwin.winfo, "")
 
-    def set_alias(self, winfo, alias):
+    def set_alias(self, mwin: ManagedWinInfo, alias: str):
         alias_lookup = dict(zip(self._alias.values(), self._alias.keys()))
         alias_winfo = alias_lookup.get(alias, None)
         self._alias.pop(alias_winfo, None)
-        self._alias[winfo] = alias
+        self._alias[mwin.winfo] = alias
         self._save_alias_file()
 
     def delete_all_alias(self):
@@ -388,8 +388,9 @@ class WinManager:
     def _save_alias_file(self):
         outlist = []
         prune = []
+        winfos = [mwin.winfo for mwin in self._allwins]
         for k,v in self._alias.items():
-            if not v or k not in self._allwins:
+            if not v or k not in winfos:
                 prune.append(k)
             else:
                 outlist.append([asdict(k), v])
@@ -679,7 +680,7 @@ class Processor(ProcessorBase):
         if cmd.kind == CommandKind.SET:
             # print(winfo)
             # winfo.alias = cmd.text
-            self._winmgr.set_alias(winfo, cmd.text)
+            self._winmgr.set_alias(mwin, cmd.text)
             self._outtext.append('Set alias: ' + cmd.text)
             output = ProcessorOutput()
             output.add_cmd('')
