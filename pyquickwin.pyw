@@ -2,9 +2,9 @@
 ## SECTION: Imports                                             #
 ##==============================================================#
 
+from __future__ import annotations
 from dataclasses import dataclass, asdict
 from enum import Enum, auto
-from operator import attrgetter
 from typing import Dict, List, Optional
 import configparser
 import csv
@@ -45,6 +45,39 @@ class CommandKind(Enum):
 class Command:
     kind: CommandKind
     text: str
+
+class ManagedWindow:
+    def __init__(self, num: int, winfo: WinInfo):
+        self._num = num
+        self._winfo = winfo
+        self._is_displayed = True
+
+    def __repr__(self):
+        return self.title
+
+    @property
+    def is_displayed(self) -> bool:
+        return self._is_displayed
+
+    @is_displayed.setter
+    def is_displayed(self, value):
+        self._is_displayed = value
+
+    @property
+    def num(self) -> str:
+        return self._num
+
+    @property
+    def winfo(self) -> WinInfo:
+        return self._winfo
+
+    @property
+    def title(self) -> str:
+        return self._winfo.title
+
+    @property
+    def exe(self) -> str:
+        return self._winfo.exe
 
 class HistStore:
     def __init__(self, hist_path, max_entries):
@@ -187,91 +220,114 @@ class WinExcluder:
 
 class WinManager:
     def __init__(self, alias_path, exclude_path):
-        #: List of all known windows.
-        self._allwins: List[WinInfo] = []
-
-        #: Index numbers of known windows included in output.
-        self._outwinnums: List[int] = []
-
+        self._allwins: List[ManagedWindow] = []  #: List of all known (not excluded) windows.
+        self._selected_win = None
+        self._excluder = WinExcluder(exclude_path)
         self._alias_file = File(alias_path, make=True)
         self._alias: Dict[WinInfo, str] = self._load_alias_file()
-        self._selected_outwinnum = 0
-        self._excluder = WinExcluder(exclude_path)
+        self._orderby = None
 
     def reload_exclusions(self):
         self._excluder.reload_exclusions()
 
-    def reset(self, orderby):
+    def reset(self):
         self._allwins = []
+        self._orderby = None
         winlist = WinControl.list()
-        if orderby:
-            winlist.sort(key=attrgetter(orderby))
-        for win in winlist:
-            if self._excluder.is_excluded(win):
+        selected_winfo = self._selected_win.winfo if self._selected_win else None
+        self._selected_win = None
+        num = 1
+        for winfo in winlist:
+            if self._excluder.is_excluded(winfo):
                 continue
-            self._allwins.append(win)
-        self._reset_outwinnums()
+            mwin = ManagedWindow(
+                num,
+                winfo,
+            )
+            self._allwins.append(mwin)
+            if winfo == selected_winfo:
+                self._selected_win = mwin
+            num += 1
+        if not self._selected_win and len(self._allwins) > 0:
+            self._selected_win = self._allwins[0]
 
     def update(self, pinput):
-        self._selected_outwinnum = self._get_outwinnum(pinput.lstview.selnum)
-        if pinput.was_hidden:
-            self._selected_outwinnum = 0
-        self._reset_outwinnums()
+        wins = self.wins
+        if pinput.was_hidden and len(wins) > 0:
+            self._selected_win = wins[0]
+        elif pinput.lstview.selnum >= 0:
+            self._selected_win = wins[pinput.lstview.selnum]
 
     def filter(self, cmdtext, getwintext=None, exact=False):
-        default = lambda w: self._alias.get(w)
-        def compare(wnum):
-            wintext = (getwintext or default)(self._allwins[wnum])
-            if wintext is None:
+        def default(mwin: ManagedWindow):
+            return self.get_alias(mwin)
+        def should_display(mwin: ManagedWindow) -> bool:
+            wintext = (getwintext or default)(mwin)
+            if not wintext:
                 return False
             if exact:
                 return StrCompare.exact(cmdtext, wintext)
             return StrCompare.choice(cmdtext, wintext)
-        self._outwinnums = list(filter(compare, self._outwinnums))
-        try:
-            self._outwinnums.index(self._selected_outwinnum)
-        except ValueError:
-            if self._outwinnums and self._selected_outwinnum is not None:
-                self._selected_outwinnum = min(
-                    self._outwinnums,
-                    key=lambda n: abs(n - self._selected_outwinnum)
-                )
-            else:
-                self._selected_outwinnum = None
+        displayed = []
+        for win in self._allwins:
+            win.is_displayed = should_display(win)
+            should_update_selected_win = not win.is_displayed and win is self._selected_win
+            if should_update_selected_win:
+                if len(displayed) > 0:
+                    self._selected_win = displayed[-1]
+                else: self._selected_win = None
+            if win.is_displayed:
+                displayed.append(win)
+
+    def set_orderby(self, orderby) -> bool:
+        if not orderby:
+            self._orderby = None
+            return False
+        def set_if_valid(validname):
+            if validname.startswith(orderby):
+                self._orderby = validname
+                return True
+        if set_if_valid('title'): return True
+        if set_if_valid('exe'): return True
+        if set_if_valid('alias'): return True
+        self._orderby = None
+        return False
 
     @property
-    def selected_winfo(self):
-        if self._selected_outwinnum is None: return None
-        rownum = self._outwinnums.index(self._selected_outwinnum)
-        winfo = self._get_winfo(rownum)
-        return winfo
+    def orderby(self) -> Optional[str]:
+        return self._orderby
 
     @property
-    def selected_rownum(self):
-        if self._selected_outwinnum is None: return None
-        if not self._outwinnums: return None
-        return self._outwinnums.index(self._selected_outwinnum)
+    def selected_win(self) -> Optional[ManagedWindow]:
+        return self._selected_win
 
     @property
-    def len_outwins(self):
-        return len(self._outwinnums)
-
-    def iter_out(self):
-        for num in self._outwinnums:
-            yield num, self._allwins[num]
+    def selected_index(self) -> int:
+        if not self._selected_win:
+            return 0
+        return self.wins.index(self._selected_win)
 
     @property
-    def len_allwins(self):
-        return len(self._allwins)
+    def wins(self) -> List[ManagedWindow]:
+        wins = [win for win in self._allwins if win.is_displayed]
+        if self._orderby:
+            def get_sortkey(mwin: ManagedWindow):
+                if self._orderby == 'alias':
+                    return self.get_alias(mwin)
+                return getattr(mwin, self._orderby)
+            return sorted(wins, key=get_sortkey)
+        return wins
 
-    def get_alias(self, winfo):
-        return self._alias.get(winfo, "")
+    def get_alias(self, mwin: ManagedWindow) -> str:
+        return self._alias.get(mwin.winfo, "")
 
-    def set_alias(self, winfo, alias):
+    def set_alias(self, mwin: ManagedWindow, alias: str):
+        if not mwin:
+            return
         alias_lookup = dict(zip(self._alias.values(), self._alias.keys()))
         alias_winfo = alias_lookup.get(alias, None)
         self._alias.pop(alias_winfo, None)
-        self._alias[winfo] = alias
+        self._alias[mwin.winfo] = alias
         self._save_alias_file()
 
     def delete_all_alias(self):
@@ -281,8 +337,9 @@ class WinManager:
     def _save_alias_file(self):
         outlist = []
         prune = []
+        winfos = [mwin.winfo for mwin in self._allwins]
         for k,v in self._alias.items():
-            if not v or k not in self._allwins:
+            if not v or k not in winfos:
                 prune.append(k)
             else:
                 outlist.append([asdict(k), v])
@@ -299,23 +356,6 @@ class WinManager:
         for i in inlist:
             alias[WinInfo(**i[0])] = i[1]
         return alias
-
-    def _get_winfo(self, rownum) -> Optional[WinInfo]:
-        try:
-            return self._allwins[self._outwinnums[rownum]]
-        except IndexError:
-            return None
-
-    def _reset_outwinnums(self):
-        self._outwinnums = list(range(len(self._allwins)))
-
-    def _get_outwinnum(self, rownum):
-        if not self._outwinnums:
-            return None
-        try:
-            return self._outwinnums[rownum if rownum > 0 else 0]
-        except IndexError:
-            return None
 
 class MathProcessor(SubprocessorBase):
     @property
@@ -463,7 +503,6 @@ class LaunchProcessor(SubprocessorBase):
 class Processor(ProcessorBase):
     def __init__(self, cfg, subprocessors=None):
         self._outtext: List[str] = []
-        self._orderby = ""
         self._winmgr = WinManager(cfg['alias_file'], cfg['exclude_file'])
         self._histmgr = HistManager(cfg['hist_file'])
         self._subprocessors = subprocessors or []
@@ -474,7 +513,7 @@ class Processor(ProcessorBase):
             'PyQuickWin commands:',
             '    Filters: t <TITLE> | e <EXECUTABLE> | l (current exe)',
             '    Aliases: s <SET> | g <GET> | d (delete all)',
-            '    Col Order: o <TITLE|EXE>'
+            '    Col Order: o [alias|exe|title]'
         ]
         msg = os.linesep.join(lines) + os.linesep
         for sub in self._subprocessors:
@@ -487,7 +526,7 @@ class Processor(ProcessorBase):
         self._winmgr.update(pinput)
         cmds = parse(pinput.cmdtext.text)
         if (not pinput.cmdtext.text) and (not cmds):
-            self._winmgr.reset(self._orderby)
+            self._winmgr.reset()
 
         cmd_on_complete = self._handle_incomplete(cmds)
         if pinput.is_complete:
@@ -498,12 +537,12 @@ class Processor(ProcessorBase):
         self._winmgr.reload_exclusions()
 
     def _render_rows(self):
-        self._outtext.append(f'Windows found: {self._winmgr.len_outwins}')
-        self._outtext.append(f'Ordering rows by: {self._orderby or "default"}')
+        wins = self._winmgr.wins
+        self._outtext.append(f'Windows found: {len(wins)}')
         rows = []
-        for num, win in self._winmgr.iter_out():
+        for win in wins:
             rows.append([
-                format_num(num + 1, self._winmgr.len_allwins),
+                format_num(win.num, len(wins)),
                 win.title,
                 win.exe,
                 self._winmgr.get_alias(win)
@@ -514,7 +553,7 @@ class Processor(ProcessorBase):
             ["Number", "Title", "Executable", "Alias"],
             [6, 74, 10, 10],
             rows,
-            self._winmgr.selected_rownum
+            self._winmgr.selected_index,
         )
         return output
 
@@ -537,8 +576,10 @@ class Processor(ProcessorBase):
             elif cmd.kind == CommandKind.GET:
                 self._winmgr.filter(cmd.text)
             elif cmd.kind == CommandKind.LIM:
-                winfo = self._winmgr.selected_winfo
+                winfo = self._winmgr.selected_win
                 self._winmgr.filter(winfo.exe, lambda w: w.exe, exact=True)
+            elif cmd.kind == CommandKind.ORD:
+                self._winmgr.set_orderby(cmd.text)
             elif cmd.kind == CommandKind.SET:
                 cmd_on_complete = cmd
             elif cmd.kind == CommandKind.ORD:
@@ -549,35 +590,22 @@ class Processor(ProcessorBase):
                 cmd_on_complete = cmd
         return cmd_on_complete
 
-    def _set_orderby(self, orderby):
-        lorderby = orderby.lower()
-        if lorderby == 'default':
-            self._orderby = ""
-            return True
-        elif lorderby in ['title', 'exe']:
-            self._orderby = lorderby
-            return True
-        return False
-
     def _handle_complete(self, cmd):
-        winfo = self._winmgr.selected_winfo
+        mwin = self._winmgr.selected_win
         if not cmd:
-            if winfo:
-                WinControl.show(winfo)
+            if mwin:
+                WinControl.show(mwin.winfo)
                 return ProcessorOutput(hide=True)
             return None
         if cmd.kind == CommandKind.SET:
-            self._winmgr.set_alias(winfo, cmd.text)
-            self._outtext.append('Set alias: ' + cmd.text)
+            self._winmgr.set_alias(mwin, cmd.text)
+            if cmd.text:
+                self._outtext.append('Set alias: ' + cmd.text)
+            else:
+                self._outtext.append('Cleared alias')
             output = ProcessorOutput()
             output.add_cmd('')
             return output
-        if cmd.kind == CommandKind.ORD:
-            if not self._set_orderby(cmd.text):
-                curr = self._orderby or "default"
-                self._outtext.append(
-                    f'Order by change invalid, current value: {curr}'
-                )
         elif cmd.kind == CommandKind.DEL:
             self._winmgr.delete_all_alias()
             self._outtext.append("All aliases deleted")
@@ -588,7 +616,6 @@ class Processor(ProcessorBase):
         return output
 
 class StrCompare:
-
     def _argcheck(method):
         def wrapper(test, target):
             if not test: return True
