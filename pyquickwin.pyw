@@ -5,7 +5,6 @@
 from __future__ import annotations
 from dataclasses import dataclass, asdict
 from enum import Enum, auto
-from operator import attrgetter
 from typing import Dict, List, Optional
 import configparser
 import csv
@@ -253,8 +252,11 @@ class WinManager:
             self._selected_win = self._allwins[0]
 
     def update(self, pinput):
-        if pinput.lstview.selnum >= 0:
-            self._selected_win = self.wins[pinput.lstview.selnum]
+        wins = self.wins
+        if pinput.was_hidden and len(wins) > 0:
+            self._selected_win = wins[0]
+        elif pinput.lstview.selnum >= 0:
+            self._selected_win = wins[pinput.lstview.selnum]
 
     def filter(self, cmdtext, getwintext=None, exact=False):
         def default(mwin: ManagedWindow):
@@ -309,13 +311,19 @@ class WinManager:
     def wins(self) -> List[ManagedWindow]:
         wins = [win for win in self._allwins if win.is_displayed]
         if self._orderby:
-            return sorted(wins, key=lambda w: getattr(w, self._orderby))
+            def get_sortkey(mwin: ManagedWindow):
+                if self._orderby == 'alias':
+                    return self.get_alias(mwin)
+                return getattr(mwin, self._orderby)
+            return sorted(wins, key=get_sortkey)
         return wins
 
     def get_alias(self, mwin: ManagedWindow) -> str:
         return self._alias.get(mwin.winfo, "")
 
     def set_alias(self, mwin: ManagedWindow, alias: str):
+        if not mwin:
+            return
         alias_lookup = dict(zip(self._alias.values(), self._alias.keys()))
         alias_winfo = alias_lookup.get(alias, None)
         self._alias.pop(alias_winfo, None)
