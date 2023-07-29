@@ -513,7 +513,7 @@ class Processor(ProcessorBase):
             'PyQuickWin commands:',
             '    Filters: t <TITLE> | e <EXECUTABLE> | l (current exe)',
             '    Aliases: s <SET> | g <GET> | d (delete all)',
-            '    Col Order: o <TITLE|EXE>'
+            '    Col Order: o [alias|exe|title]'
         ]
         msg = os.linesep.join(lines) + os.linesep
         for sub in self._subprocessors:
