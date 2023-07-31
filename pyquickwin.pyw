@@ -252,11 +252,10 @@ class WinManager:
             self._selected_win = self._allwins[0]
 
     def update(self, pinput):
-        wins = self.wins
-        if pinput.was_hidden and len(wins) > 0:
-            self._selected_win = wins[0]
+        if pinput.was_hidden:
+            self._selected_win = None
         elif pinput.lstview.selnum >= 0:
-            self._selected_win = wins[pinput.lstview.selnum]
+            self._selected_win = self.wins[pinput.lstview.selnum]
 
     def filter(self, cmdtext, getwintext=None, exact=False):
         def default(mwin: ManagedWindow):
