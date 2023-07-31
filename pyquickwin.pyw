@@ -161,7 +161,9 @@ class HistManager:
     def match(self, key, opts):
         hist = self._hists.startswith(key)
         if hist:
-            return opts.index(hist[1])
+            fullname = hist[1]
+            if fullname:
+                return opts.index(fullname)
         return None
 
     def _reset(self):
@@ -169,7 +171,7 @@ class HistManager:
         self._base = None
 
     def _try_set_base(self, value):
-        if self._base == None:
+        if self._base is None:
             self._base = value
         elif value == '':
             self._base = None
@@ -474,7 +476,7 @@ class LaunchProcessor(SubprocessorBase):
 
     @HistManager.update(0, LAUNCH_PREFIX)
     def update(self, pinput):
-        if pinput.is_complete:
+        if pinput.is_complete and pinput.selrow:
             stem,ext = pinput.selrow
             selpath = File(self._path, stem + ext)
             auxly.open(selpath)
@@ -626,7 +628,7 @@ class StrCompare:
     @_argcheck
     def choice(test: str, target: str) -> bool:
         if test.startswith("'"):
-            return StrCompare.exact(test[1:], target)
+            return StrCompare.includes(test[1:], target)
         return StrCompare.progressive(test, target)
 
     @staticmethod
@@ -647,10 +649,17 @@ class StrCompare:
 
     @staticmethod
     @_argcheck
-    def exact(test: str, target: str) -> bool:
+    def includes(test: str, target: str) -> bool:
         ltest = test.lower()
         ltarg = target.lower()
         return ltest in ltarg
+
+    @staticmethod
+    @_argcheck
+    def exact(test: str, target: str) -> bool:
+        ltest = test.lower()
+        ltarg = target.lower()
+        return ltest == ltarg
 
 ##==============================================================#
 ## SECTION: Function Definitions                                #
