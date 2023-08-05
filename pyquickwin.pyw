@@ -270,7 +270,7 @@ class WinManager:
                 return StrCompare.exact(cmdtext, wintext)
             return StrCompare.choice(cmdtext, wintext)
         displayed = []
-        for win in self._allwins:
+        for win in self.wins:
             win.is_displayed = should_display(win)
             should_update_selected_win = not win.is_displayed and win is self._selected_win
             if should_update_selected_win:
