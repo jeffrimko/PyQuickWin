@@ -440,7 +440,7 @@ class DirAggProcessor(SubprocessorBase):
         return output
 
     def _show_root(self, pinput, cmdtext):
-        if pinput.is_complete or pinput.key == KeyKind.INTO:
+        if pinput.selrow and (pinput.is_complete or pinput.key == KeyKind.INTO):
             self._selected = pinput.selrow[0]
             output = ProcessorOutput()
             output.add_cmd(DIRAGG_PREFIX)
