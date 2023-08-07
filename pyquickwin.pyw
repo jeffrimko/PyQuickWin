@@ -578,7 +578,8 @@ class Processor(ProcessorBase):
                 self._winmgr.filter(cmd.text)
             elif cmd.kind == CommandKind.LIM:
                 winfo = self._winmgr.selected_win
-                self._winmgr.filter(winfo.exe, lambda w: w.exe, exact=True)
+                if winfo:
+                    self._winmgr.filter(winfo.exe, lambda w: w.exe, exact=True)
             elif cmd.kind == CommandKind.ORD:
                 self._winmgr.set_orderby(cmd.text)
             elif cmd.kind == CommandKind.SET:
