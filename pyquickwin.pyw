@@ -254,10 +254,19 @@ class WinManager:
             self._selected_win = self._allwins[0]
 
     def update(self, pinput):
-        if pinput.was_hidden:
-            self._selected_win = None
-        elif pinput.lstview.selnum >= 0:
-            self._selected_win = self.wins[pinput.lstview.selnum]
+        def update_selected_win():
+            clear_selected = pinput.was_hidden
+            if clear_selected:
+                self._selected_win = None
+                return
+            select_from_input = pinput.lstview.selnum >= 0 and len(self.wins) > pinput.lstview.selnum
+            if select_from_input:
+                self._selected_win = self.wins[pinput.lstview.selnum]
+                return
+
+        update_selected_win()
+        for win in self._allwins:
+            win.is_displayed = True
 
     def filter(self, cmdtext, getwintext=None, exact=False):
         def default(mwin: ManagedWindow):
@@ -269,16 +278,17 @@ class WinManager:
             if exact:
                 return StrCompare.exact(cmdtext, wintext)
             return StrCompare.choice(cmdtext, wintext)
-        displayed = []
+        prev_displayed_win = None
         for win in self.wins:
             win.is_displayed = should_display(win)
             should_update_selected_win = not win.is_displayed and win is self._selected_win
             if should_update_selected_win:
-                if len(displayed) > 0:
-                    self._selected_win = displayed[-1]
-                else: self._selected_win = None
+                if prev_displayed_win:
+                    self._selected_win = prev_displayed_win
+                else:
+                    self._selected_win = None
             if win.is_displayed:
-                displayed.append(win)
+                prev_displayed_win = win
 
     def set_orderby(self, orderby) -> bool:
         if not orderby:
