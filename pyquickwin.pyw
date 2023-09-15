@@ -205,10 +205,11 @@ class WinExcluder:
 
     def reload_exclusions(self):
         self._excludes = []
-        with open(self._exclude_path, newline='') as csvfile:
-            reader = csv.reader(csvfile)
-            for row in reader:
-                self._excludes.append(row)
+        if os.path.isfile(self._exclude_path):
+            with open(self._exclude_path, newline='') as csvfile:
+                reader = csv.reader(csvfile)
+                for row in reader:
+                    self._excludes.append(row)
 
     def is_excluded(self, winfo: WinInfo):
         for title,exe in self._excludes:
@@ -362,7 +363,7 @@ class WinManager:
         alias = {}
         try:
             inlist = ujson.loads(self._alias_file.read())
-        except TypeError:
+        except Exception:
             return alias
         for i in inlist:
             alias[WinInfo(**i[0])] = i[1]
@@ -729,18 +730,39 @@ def parse(input_cmd: str) -> List[Command]:
 ##==============================================================#
 
 if __name__ == '__main__':
+    if len(sys.argv) != 2:
+        sys.exit("ERROR: Must provide config file as argument!")
     cfg_path = sys.argv[1]
     cfg = configparser.ConfigParser()
     cfg.read(cfg_path)
+    if not cfg.has_section('quickwin'):
+        sys.exit("ERROR: Config file must contain a 'quickwin' section!")
 
-    explore = DirAggProcessor(dict(cfg.items('diragg')))
-    subprocessors = [
-        explore,
-        LaunchProcessor(dict(cfg.items('launch'))),
-        MathProcessor()
-    ]
+    menuitems = []
+    subprocessors = [MathProcessor()]
+    if cfg.has_section('diragg'):
+        diragg = DirAggProcessor(dict(cfg.items('diragg')))
+        subprocessors.append(diragg)
+        menuitems.append(
+            MenuItem(
+                name='Reload DirAgg locations',
+                msg='DirAgg locations configuration has been reloaded from file',
+                func=diragg.reload_config
+            )
+        )
+    if cfg.has_section('launch'):
+        launch = LaunchProcessor(dict(cfg.items('launch')))
+        subprocessors.append(launch)
 
     processor = Processor(dict(cfg.items('quickwin')), subprocessors)
+    menuitems.append(
+        MenuItem(
+            name='Reload QuickWin exclusions',
+            msg='Window exclusions have been reloaded from file',
+            func=processor.reload_exclusions
+        )
+    )
+
     config = Config(
         name='QuickWin',
         about='A window switcher',
@@ -748,17 +770,6 @@ if __name__ == '__main__':
         iconpath=abspath("icon.png", __file__),
         winpct=[70, 70],
         comprops=[6, 1],
-        menuitems=[
-            MenuItem(
-                name='Reload QuickWin exclusions',
-                msg='Window exclusions have been reloaded from file',
-                func=processor.reload_exclusions
-            ),
-            MenuItem(
-                name='Reload DirAgg locations',
-                msg='DirAgg locations configuration has been reloaded from file',
-                func=explore.reload_config
-            ),
-        ]
+        menuitems=menuitems
     )
     App(config, processor)
