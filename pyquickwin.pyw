@@ -205,7 +205,7 @@ class WinExcluder:
 
     def reload_exclusions(self):
         self._excludes = []
-        if os.path.isfile(self._exclude_path):
+        if self._exclude_path and os.path.isfile(self._exclude_path):
             with open(self._exclude_path, newline='') as csvfile:
                 reader = csv.reader(csvfile)
                 for row in reader:
@@ -515,7 +515,7 @@ class LaunchProcessor(SubprocessorBase):
 class Processor(ProcessorBase):
     def __init__(self, cfg, subprocessors=None):
         self._outtext: List[str] = []
-        self._winmgr = WinManager(cfg['alias_file'], cfg['exclude_file'])
+        self._winmgr = WinManager(cfg['alias_file'], cfg.get('exclude_file'))
         self._histmgr = HistManager(cfg['hist_file'])
         self._subprocessors = subprocessors or []
 
