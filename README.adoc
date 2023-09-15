@@ -8,11 +8,16 @@ This project is a reimplementation of the original https://github.com/jeffrimko/
 == Status
 The status of this project is **pre-alpha**. This project is not yet suitable for use other than testing.
 
-== Requirements
-TODO
-
 == Install
-TODO
+TODO: More info coming soon! Run from source using `python pyquickwin.pyw examples/config.ini` and use `CTRL+C` or the taskbar menu to exit.
 
 == Usage
-TODO
+TODO: More info coming soon! The basic keyboard shortcuts are:
+
+  - `CTRL+ALT+SPACE` - Opens the QuickWin main window.
+  - `DOWN` or `CTRL+J` - Selects the next window in the list.
+  - `UP` or `CTRL+K` - Selects the previous window in the list.
+  - `ENTER` - Switches to the selected window.
+  - `CTRL+H` - Selects the top window in the list.
+  - `CTRL+L` - Selects the bottom window in the list.
+  - `CTRL+M` - Selects the middle window in the list.
