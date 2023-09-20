@@ -8,7 +8,7 @@ This project is a reimplementation of the original https://github.com/jeffrimko/
 == Status
 The status of this project is **pre-alpha**. This project is not yet suitable for use other than testing.
 
-== Install
+== Installation
 TODO: More info coming soon! Run from source using `python pyquickwin.pyw examples/config.ini` and use `CTRL+C` or the taskbar menu to exit.
 
 == Usage
