@@ -8,8 +8,8 @@ from enum import Enum, auto
 from typing import Dict, List, Optional
 import configparser
 import csv
-import sys
 import os
+import sys
 
 from auxly.filesys import Dir, File, abspath, walkfiles, walkdirs
 import auxly
@@ -28,25 +28,56 @@ MATH_PREFIX = "="
 DIRAGG_PREFIX = ">"
 
 ##==============================================================#
+## SECTION: Special Function Definitions                        #
+##==============================================================#
+
+def update_histmgr(method):
+    """Decorator on a processor's update call to handle managing history."""
+    def a_wrapper(processor, pinput):
+        if pinput.was_hidden or pinput.cmd == processor.prefix:
+            processor._histmgr.reset()
+        if pinput.key == KeyKind.PREV:
+            pout = ProcessorOutput()
+            pout.add_cmd(processor._histmgr.get_prev(pinput.cmd))
+            return pout
+        elif pinput.key == KeyKind.NEXT:
+            pout = ProcessorOutput()
+            pout.add_cmd(processor._histmgr.get_next(pinput.cmd))
+            return pout
+        if pinput.is_complete and pinput.cmd:
+            processor._histmgr.add(pinput)
+        return method(processor, pinput)
+    return a_wrapper
+
+##==============================================================#
 ## SECTION: Class Definitions                                   #
 ##==============================================================#
 
 class CommandKind(Enum):
-    UNK = auto()
+    """The kinds of QuickWin commands handled by the processor."""
+    UNKNOWN = auto()
     TITLE = auto()
     EXE = auto()
     SET = auto()
     GET = auto()
-    LIM = auto()
-    DEL = auto()
-    ORD = auto()
+    LIMIT = auto()
+    DELETE = auto()
+    ORDER = auto()
 
 @dataclass
 class Command:
+    """A QuickWin command."""
     kind: CommandKind
     text: str
 
+@dataclass
+class HistEntry:
+    """A single processor history entry."""
+    cmd: str
+    row: Optional[str]
+
 class ManagedWindow:
+    """An OS window that is able to be managed by the QuickWin processor."""
     def __init__(self, num: int, winfo: WinInfo):
         self._num = num
         self._winfo = winfo
@@ -80,124 +111,108 @@ class ManagedWindow:
         return self._winfo.exe
 
 class HistStore:
-    def __init__(self, hist_path, max_entries):
+    """Handles persisting and retrieving from the HistEntry list."""
+    def __init__(self, hist_path: str, max_entries: int, save_rownum: Optional[int] = None):
         self._histfile = File(hist_path, make=True)
         self._max_entries = max_entries
+        self._save_rownum = save_rownum
         self._load()
 
-    def get(self, prefix: str, idx: int) -> Optional[List[str]]:
+    def get(self, prefix: Optional[str] = None, idx: int = 0) -> Optional[HistEntry]:
         try:
             return self._filter(prefix)[idx]
         except IndexError:
             return None
 
-    def _filter(self, prefix: str):
-        result = []
-        for hist in self._hists:
-            if hist[0].startswith(prefix):
-                result.append(hist)
-        return result
-
-    def len(self, prefix: str):
+    def len(self, prefix: Optional[str] = None) -> int:
         return len(self._filter(prefix))
 
-    def startswith(self, prefix: str):
+    def add(self, pinput):
+        cmd = pinput.cmd.strip()
+        row = None
+        if self._save_rownum is not None:
+            row = get_selrowtext(pinput, self._save_rownum)
+        new_hists = [HistEntry(cmd, row)]
+        new_cmds = [cmd]
         for hist in self._hists:
-            if hist[0].startswith(prefix):
-                return hist
-        return None
-
-    def add(self, key: str, value: str):
-        new_hists = [[key, value]]
-        new_keys = [key]
-        for hist in self._hists:
-            if hist[0] not in new_keys:
+            if hist.cmd not in new_cmds:
                 new_hists.append(hist)
-                new_keys.append(hist[0])
+                new_cmds.append(hist.cmd)
             if len(new_hists) >= self._max_entries:
                 break
         self._hists = new_hists
         self._save()
 
+    def _filter(self, prefix: str):
+        result = []
+        for hist in self._hists:
+            if hist.cmd.startswith(prefix or ''):
+                result.append(hist)
+        return result
+
     def _save(self):
+        to_dump = None
+        if self._save_rownum is not None:
+            to_dump = [[entry.cmd, entry.row] for entry in self._hists]
+        else:
+            to_dump = [entry.cmd for entry in self._hists]
         self._histfile.empty()
-        self._histfile.write(yaml.safe_dump(self._hists))
+        self._histfile.write(yaml.safe_dump(to_dump))
 
     def _load(self):
-        self._hists = yaml.safe_load(self._histfile.read()) or []
+        loaded = yaml.safe_load(self._histfile.read()) or []
+        if len(loaded) > 0 and isinstance(loaded[0], str):
+            self._hists = [HistEntry(cmd, None) for cmd in loaded]
+        else:
+            self._hists = [HistEntry(*entry) for entry in loaded]
 
 class HistManager:
-    def __init__(self, hist_path, max_entries=1000):
-        self._hists = HistStore(hist_path, max_entries)
-        self._reset()
+    """Manages history for a processor."""
+    def __init__(self, hist_path, save_rownum=None, max_entries=1000):
+        self._hists = HistStore(hist_path, max_entries, save_rownum)
+        self.reset()
 
-    @staticmethod
-    def _get_selrowtext(pinput, rownum):
-        try:
-            return pinput.selrow[rownum]
-        except Exception:
-            return None
+    def add(self, pinput):
+        self._hists.add(pinput)
 
-    @staticmethod
-    def update(rownum, prefix=''):
-        def m_wrapper(method):
-            def a_wrapper(processor, pinput):
-                if pinput.was_hidden or pinput.cmd == prefix:
-                    processor._histmgr._reset()
-                if pinput.key == KeyKind.PREV:
-                    pout = ProcessorOutput()
-                    pout.add_cmd(processor._histmgr._get_prev(pinput.cmd))
-                    return pout
-                elif pinput.key == KeyKind.NEXT:
-                    pout = ProcessorOutput()
-                    pout.add_cmd(processor._histmgr._get_next(pinput.cmd))
-                    return pout
-                if pinput.is_complete and pinput.cmd:
-                    processor._histmgr.add(pinput.cmd, HistManager._get_selrowtext(pinput, rownum))
-                return method(processor, pinput)
-            return a_wrapper
-        return m_wrapper
-
-    def match(self, key, opts):
-        hist = self._hists.startswith(key)
+    def match_to_row(self, cmd_prefix: str, rows_to_match: List[str]) -> Optional[int]:
+        hist = self._hists.get(cmd_prefix)
         if hist:
-            fullname = hist[1]
-            if fullname:
-                return opts.index(fullname)
+            row = hist.row
+            if row and row in rows_to_match:
+                return rows_to_match.index(row)
         return None
 
-    def _reset(self):
+    def reset(self):
         self._pointer = -1
         self._base = None
 
-    def _try_set_base(self, value):
-        if self._base is None:
-            self._base = value
-        elif value == '':
-            self._base = None
-
-    def _get_prev(self, value):
-        self._try_set_base(value)
+    def get_prev(self, prefix: str) -> str:
+        self._try_set_base(prefix)
         self._pointer += 1
         if self._pointer >= self._hists.len(self._base):
             self._pointer = self._hists.len(self._base) - 1
         if self._hists.len(self._base) == 0:
             return ''
-        return self._hists.get(self._base, self._pointer)[0]
+        return self._hists.get(self._base, self._pointer).cmd
 
-    def _get_next(self, value):
-        self._try_set_base(value)
+    def get_next(self, prefix) -> str:
+        self._try_set_base(prefix)
         self._pointer -= 1
         if self._pointer < 0:
             self._pointer = 0
         if self._hists.len(self._base) == 0:
             return ''
-        return self._hists.get(self._base, self._pointer)[0]
+        return self._hists.get(self._base, self._pointer).cmd
 
-    def add(self, cmd, row):
-        self._hists.add(cmd.strip(), row)
+    def _try_set_base(self, prefix):
+        if self._base is None:
+            self._base = prefix
+        elif prefix == '':
+            self._base = None
 
 class WinExcluder:
+    """Checks if an OS window should be excluded from the QuickWin list."""
     def __init__(self, exclude_path):
         self._exclude_path = exclude_path
         self._excludes = []
@@ -222,6 +237,7 @@ class WinExcluder:
         return False
 
 class WinManager:
+    """Manages the list of OS windows for the QuickWin processor."""
     def __init__(self, alias_path, exclude_path):
         self._allwins: List[ManagedWindow] = []  #: List of all known (not excluded) windows.
         self._selected_win = None
@@ -229,6 +245,31 @@ class WinManager:
         self._alias_file = File(alias_path, make=True)
         self._alias: Dict[WinInfo, str] = self._load_alias_file()
         self._orderby = None
+
+    @property
+    def orderby(self) -> Optional[str]:
+        return self._orderby
+
+    @property
+    def selected_win(self) -> Optional[ManagedWindow]:
+        return self._selected_win
+
+    @property
+    def selected_index(self) -> int:
+        if not self._selected_win:
+            return 0
+        return self.wins.index(self._selected_win)
+
+    @property
+    def wins(self) -> List[ManagedWindow]:
+        wins = [win for win in self._allwins if win.is_displayed]
+        if self._orderby:
+            def get_sortkey(mwin: ManagedWindow):
+                if self._orderby == 'alias':
+                    return self.get_alias(mwin)
+                return getattr(mwin, self._orderby)
+            return sorted(wins, key=get_sortkey)
+        return wins
 
     def reload_exclusions(self):
         self._excluder.reload_exclusions()
@@ -305,31 +346,6 @@ class WinManager:
         self._orderby = None
         return False
 
-    @property
-    def orderby(self) -> Optional[str]:
-        return self._orderby
-
-    @property
-    def selected_win(self) -> Optional[ManagedWindow]:
-        return self._selected_win
-
-    @property
-    def selected_index(self) -> int:
-        if not self._selected_win:
-            return 0
-        return self.wins.index(self._selected_win)
-
-    @property
-    def wins(self) -> List[ManagedWindow]:
-        wins = [win for win in self._allwins if win.is_displayed]
-        if self._orderby:
-            def get_sortkey(mwin: ManagedWindow):
-                if self._orderby == 'alias':
-                    return self.get_alias(mwin)
-                return getattr(mwin, self._orderby)
-            return sorted(wins, key=get_sortkey)
-        return wins
-
     def get_alias(self, mwin: ManagedWindow) -> str:
         return self._alias.get(mwin.winfo, "")
 
@@ -370,14 +386,20 @@ class WinManager:
         return alias
 
 class MathProcessor(SubprocessorBase):
+    """Processor to perform simple math calculations."""
+
+    @property
+    def prefix(self):
+        return MATH_PREFIX
+
     @property
     def help(self) -> str:
-        return "Math processor prefix: " + MATH_PREFIX
+        return "Math processor prefix: " + self.prefix
 
     def use_processor(self, pinput):
         if len(pinput.cmd) == 0:
             return False
-        return pinput.cmd[0] == MATH_PREFIX
+        return pinput.cmd[0] == self.prefix
 
     def update(self, pinput):
         cmdtext = pinput.cmd.split("=", maxsplit=1)[1]
@@ -391,6 +413,8 @@ class MathProcessor(SubprocessorBase):
         return output
 
 class DirAggProcessor(SubprocessorBase):
+    """Processor that aggregates child directories from multiple parents and
+    allows the user to open one."""
     def __init__(self, cfg):
         self._path = cfg['locations_file']
         self._cfg = {}
@@ -398,8 +422,12 @@ class DirAggProcessor(SubprocessorBase):
         self.reload_config()
 
     @property
+    def prefix(self) -> str:
+        return DIRAGG_PREFIX
+
+    @property
     def help(self) -> str:
-        return "DirAgg processor prefix: " + DIRAGG_PREFIX
+        return "DirAgg processor prefix: " + self.prefix
 
     def reload_config(self):
         self._cfg = yaml.safe_load(File(self._path).read())
@@ -409,7 +437,7 @@ class DirAggProcessor(SubprocessorBase):
         if len(pinput.cmd) == 0:
             self._selected = None
             return False
-        return pinput.cmd.startswith(DIRAGG_PREFIX)
+        return pinput.cmd.startswith(self.prefix)
 
     def update(self, pinput):
         cmdtext = pinput.cmd[1:].lstrip()
@@ -454,7 +482,7 @@ class DirAggProcessor(SubprocessorBase):
         if pinput.selrow and (pinput.is_complete or pinput.key == KeyKind.INTO):
             self._selected = pinput.selrow[0]
             output = ProcessorOutput()
-            output.add_cmd(DIRAGG_PREFIX)
+            output.add_cmd(self.prefix)
             return output
         rows = []
         for k in self._cfg.keys():
@@ -472,20 +500,26 @@ class DirAggProcessor(SubprocessorBase):
         return output
 
 class LaunchProcessor(SubprocessorBase):
+    """Processor that lists child items from a directory and allows the user to
+    open one."""
     def __init__(self, cfg):
         self._path = cfg['launch_dir']
-        self._histmgr = HistManager(cfg['hist_file'])
+        self._histmgr = HistManager(cfg['hist_file'], 0)
+
+    @property
+    def prefix(self) -> str:
+        return LAUNCH_PREFIX
 
     @property
     def help(self) -> str:
-        return "Launch processor prefix: " + LAUNCH_PREFIX
+        return "Launch processor prefix: " + self.prefix
 
     def use_processor(self, pinput):
         if len(pinput.cmd) == 0:
             return False
-        return pinput.cmd[0] == LAUNCH_PREFIX
+        return pinput.cmd[0] == self.prefix
 
-    @HistManager.update(0, LAUNCH_PREFIX)
+    @update_histmgr
     def update(self, pinput):
         if pinput.is_complete and pinput.selrow:
             stem,ext = pinput.selrow
@@ -499,8 +533,7 @@ class LaunchProcessor(SubprocessorBase):
             if not StrCompare.choice(cmdtext, f.name):
                 continue
             rows.append([f.stem, f.ext])
-
-        selnum = self._histmgr.match(pinput.cmd.strip(), [r[0] for r in rows])
+        selnum = self._histmgr.match_to_row(pinput.cmd.strip(), [r[0] for r in rows])
         if selnum is None:
             selnum = pinput.lstview.selnum
         output.add_out(f"Launch items found: {len(rows)}")
@@ -513,11 +546,17 @@ class LaunchProcessor(SubprocessorBase):
         return output
 
 class Processor(ProcessorBase):
+    """The main QuickWin processor. Provides a list of OS windows and allows
+    the user to select one to switch to (similar to ALT+TAB)."""
     def __init__(self, cfg, subprocessors=None):
         self._outtext: List[str] = []
         self._winmgr = WinManager(cfg['alias_file'], cfg.get('exclude_file'))
         self._histmgr = HistManager(cfg['hist_file'])
         self._subprocessors = subprocessors or []
+
+    @property
+    def prefix(self) -> str:
+        return ''
 
     @property
     def help(self) -> str:
@@ -533,7 +572,7 @@ class Processor(ProcessorBase):
         return msg
 
     @subprocessors
-    @HistManager.update(1)
+    @update_histmgr
     def update(self, pinput):
         self._winmgr.update(pinput)
         cmds = parse(pinput.cmdtext.text)
@@ -587,19 +626,17 @@ class Processor(ProcessorBase):
                 self._winmgr.filter(cmd.text, lambda w: w.exe)
             elif cmd.kind == CommandKind.GET:
                 self._winmgr.filter(cmd.text)
-            elif cmd.kind == CommandKind.LIM:
+            elif cmd.kind == CommandKind.LIMIT:
                 winfo = self._winmgr.selected_win
                 if winfo:
                     self._winmgr.filter(winfo.exe, lambda w: w.exe, exact=True)
-            elif cmd.kind == CommandKind.ORD:
+            elif cmd.kind == CommandKind.ORDER:
                 self._winmgr.set_orderby(cmd.text)
             elif cmd.kind == CommandKind.SET:
                 cmd_on_complete = cmd
-            elif cmd.kind == CommandKind.ORD:
+            elif cmd.kind == CommandKind.DELETE:
                 cmd_on_complete = cmd
-            elif cmd.kind == CommandKind.DEL:
-                cmd_on_complete = cmd
-            elif cmd.kind == CommandKind.UNK:
+            elif cmd.kind == CommandKind.UNKNOWN:
                 cmd_on_complete = cmd
         return cmd_on_complete
 
@@ -619,7 +656,7 @@ class Processor(ProcessorBase):
             output = ProcessorOutput()
             output.add_cmd('')
             return output
-        elif cmd.kind == CommandKind.DEL:
+        elif cmd.kind == CommandKind.DELETE:
             self._winmgr.delete_all_alias()
             self._outtext.append("All aliases deleted")
         else:
@@ -629,6 +666,7 @@ class Processor(ProcessorBase):
         return output
 
 class StrCompare:
+    """Provides various string comparison methods."""
     def _argcheck(method):
         def wrapper(test, target):
             if not test: return True
@@ -677,6 +715,12 @@ class StrCompare:
 ## SECTION: Function Definitions                                #
 ##==============================================================#
 
+def get_selrowtext(pinput, rownum):
+    try:
+        return pinput.selrow[rownum]
+    except Exception:
+        return ''
+
 def format_num(num: int, padref=0) -> str:
     padlen = len(str(padref))
     return str(num).zfill(padlen)
@@ -716,13 +760,13 @@ def parse(input_cmd: str) -> List[Command]:
         elif tok == "s" or tok.startswith("s "):
             cmds.append(Command(CommandKind.SET, totext(tok)))
         elif tok.startswith("o"):
-            cmds.append(Command(CommandKind.ORD, totext(tok)))
+            cmds.append(Command(CommandKind.ORDER, totext(tok)))
         elif tok == "l" or tok.startswith("l "):
-            cmds.append(Command(CommandKind.LIM, totext(tok)))
+            cmds.append(Command(CommandKind.LIMIT, totext(tok)))
         elif tok.strip() == "d":
-            cmds.append(Command(CommandKind.DEL, totext(tok)))
+            cmds.append(Command(CommandKind.DELETE, totext(tok)))
         else:
-            cmds.append(Command(CommandKind.UNK, totext(tok)))
+            cmds.append(Command(CommandKind.UNKNOWN, totext(tok)))
     return cmds
 
 ##==============================================================#
