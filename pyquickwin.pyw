@@ -193,7 +193,7 @@ class HistManager:
         self._pointer = -1
         self._cmd_prefix = None
 
-    def get_prev(self, cmd_prefix: str) -> str:
+    def get_next(self, cmd_prefix: str) -> str:
         self._try_set_cmd_prefix(cmd_prefix)
         self._pointer += 1
         if self._pointer >= self._hists.len(self._cmd_prefix):
@@ -202,8 +202,7 @@ class HistManager:
             return ''
         return self._hists.get(self._cmd_prefix, self._pointer).cmd
 
-    def get_next(self, cmd_prefix: str) -> str:
-        print(cmd_prefix)
+    def get_prev(self, cmd_prefix: str) -> str:
         self._try_set_cmd_prefix(cmd_prefix)
         self._pointer -= 1
         if self._pointer < 0:
