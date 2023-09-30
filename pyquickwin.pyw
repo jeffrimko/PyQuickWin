@@ -31,21 +31,27 @@ DIRAGG_PREFIX = ">"
 ## SECTION: Special Function Definitions                        #
 ##==============================================================#
 
+def fatal(msg):
+    sys.exit(f"ERROR: {msg}")
+
 def update_histmgr(method):
     """Decorator on a processor's update call to handle managing history."""
     def a_wrapper(processor, pinput):
+        histmgr: HistManager = getattr(processor, "_histmgr", None)
+        if histmgr == None:
+            fatal(f"Processor {processor} has no HistManager attribute named _histmgr!")
         if pinput.was_hidden or pinput.cmd == processor.prefix:
-            processor._histmgr.reset()
+            histmgr.reset()
         if pinput.key == KeyKind.PREV:
             pout = ProcessorOutput()
-            pout.add_cmd(processor._histmgr.get_prev(pinput.cmd))
+            pout.add_cmd(histmgr.get_prev(pinput.cmd))
             return pout
         elif pinput.key == KeyKind.NEXT:
             pout = ProcessorOutput()
-            pout.add_cmd(processor._histmgr.get_next(pinput.cmd))
+            pout.add_cmd(histmgr.get_next(pinput.cmd))
             return pout
         if pinput.is_complete and pinput.cmd:
-            processor._histmgr.add(pinput)
+            histmgr.add(pinput)
         return method(processor, pinput)
     return a_wrapper
 
@@ -185,31 +191,32 @@ class HistManager:
 
     def reset(self):
         self._pointer = -1
-        self._base = None
+        self._cmd_prefix = None
 
-    def get_prev(self, prefix: str) -> str:
-        self._try_set_base(prefix)
+    def get_prev(self, cmd_prefix: str) -> str:
+        self._try_set_cmd_prefix(cmd_prefix)
         self._pointer += 1
-        if self._pointer >= self._hists.len(self._base):
-            self._pointer = self._hists.len(self._base) - 1
-        if self._hists.len(self._base) == 0:
+        if self._pointer >= self._hists.len(self._cmd_prefix):
+            self._pointer = self._hists.len(self._cmd_prefix) - 1
+        if self._hists.len(self._cmd_prefix) == 0:
             return ''
-        return self._hists.get(self._base, self._pointer).cmd
+        return self._hists.get(self._cmd_prefix, self._pointer).cmd
 
-    def get_next(self, prefix) -> str:
-        self._try_set_base(prefix)
+    def get_next(self, cmd_prefix: str) -> str:
+        print(cmd_prefix)
+        self._try_set_cmd_prefix(cmd_prefix)
         self._pointer -= 1
         if self._pointer < 0:
             self._pointer = 0
-        if self._hists.len(self._base) == 0:
+        if self._hists.len(self._cmd_prefix) == 0:
             return ''
-        return self._hists.get(self._base, self._pointer).cmd
+        return self._hists.get(self._cmd_prefix, self._pointer).cmd
 
-    def _try_set_base(self, prefix):
-        if self._base is None:
-            self._base = prefix
-        elif prefix == '':
-            self._base = None
+    def _try_set_cmd_prefix(self, cmd_prefix):
+        if self._cmd_prefix is None:
+            self._cmd_prefix = cmd_prefix
+        elif cmd_prefix == '':
+            self._cmd_prefix = None
 
 class WinExcluder:
     """Checks if an OS window should be excluded from the QuickWin list."""
@@ -775,12 +782,12 @@ def parse(input_cmd: str) -> List[Command]:
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
-        sys.exit("ERROR: Must provide config file as argument!")
+        fatal("Must provide config file as argument!")
     cfg_path = sys.argv[1]
     cfg = configparser.ConfigParser()
     cfg.read(cfg_path)
     if not cfg.has_section('quickwin'):
-        sys.exit("ERROR: Config file must contain a 'quickwin' section!")
+        fatal("Config file must contain a 'quickwin' section!")
 
     menuitems = []
     subprocessors = [MathProcessor()]
