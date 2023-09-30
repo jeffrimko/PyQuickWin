@@ -199,7 +199,7 @@ class HistManager:
         if self._pointer >= self._hists.len(self._cmd_prefix):
             self._pointer = self._hists.len(self._cmd_prefix) - 1
         if self._hists.len(self._cmd_prefix) == 0:
-            return ''
+            return None
         return self._hists.get(self._cmd_prefix, self._pointer).cmd
 
     def get_prev(self, cmd_prefix: str) -> str:
@@ -208,7 +208,7 @@ class HistManager:
         if self._pointer < 0:
             self._pointer = 0
         if self._hists.len(self._cmd_prefix) == 0:
-            return ''
+            return None
         return self._hists.get(self._cmd_prefix, self._pointer).cmd
 
     def _try_set_cmd_prefix(self, cmd_prefix):
