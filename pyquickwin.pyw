@@ -509,7 +509,7 @@ class LaunchProcessor(SubprocessorBase):
     open one."""
     def __init__(self, cfg):
         self._path = cfg['launch_dir']
-        hist_path = os.path.join(cfg['output_dir'], "hist-launch.json")
+        hist_path = format_outpath(cfg, "hist-launch")
         self._histmgr = HistManager(hist_path, 0)
 
     @property
@@ -556,9 +556,9 @@ class Processor(ProcessorBase):
     the user to select one to switch to (similar to ALT+TAB)."""
     def __init__(self, cfg, subprocessors=None):
         self._outtext: List[str] = []
-        alias_path = os.path.join(cfg['output_dir'], "alias-quickwin.json")
+        alias_path = format_outpath(cfg, "alias-quickwin")
         self._winmgr = WinManager(alias_path, cfg.get('exclude_file'))
-        hist_path = os.path.join(cfg['output_dir'], "hist-quickwin.json")
+        hist_path = format_outpath(cfg, "hist-quickwin")
         self._histmgr = HistManager(hist_path)
         self._subprocessors = subprocessors or []
 
@@ -776,6 +776,9 @@ def parse(input_cmd: str) -> List[Command]:
         else:
             cmds.append(Command(CommandKind.UNKNOWN, totext(tok)))
     return cmds
+
+def format_outpath(cfg, file_stem) -> str:
+    return os.path.join(cfg['output_dir'], file_stem + ".json")
 
 def save_output(out_file, output):
     json = ujson.dumps(output)
