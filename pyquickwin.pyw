@@ -37,7 +37,7 @@ def update_histmgr(method):
     """Decorator on a processor's update call to handle managing history."""
     def a_wrapper(processor, pinput):
         histmgr: HistManager = getattr(processor, "_histmgr", None)
-        if histmgr == None:
+        if histmgr is None:
             fatal(f"Processor {processor} has no HistManager attribute named _histmgr!")
         if pinput.was_hidden or pinput.cmd == processor.prefix:
             histmgr.reset()
@@ -801,26 +801,27 @@ def load_config(cfg_path):
 
 def get_processor_config(main_cfg, processor_name) -> Optional[Dict[str, str]]:
     processor_cfg = main_cfg.get(processor_name)
-    if processor_cfg == None:
+    if processor_cfg is None:
         return None
-    processor_cfg['output_dir'] = main_cfg['output_dir']
+    common_cfg = main_cfg['__common__']
+    for key, value in common_cfg.items():
+        if not processor_cfg.get(key):
+            processor_cfg[key] = value
     return processor_cfg
 
-##==============================================================#
-## SECTION: Main Body                                           #
-##==============================================================#
-
-if __name__ == '__main__':
+def start_app():
     if len(sys.argv) != 2:
         fatal("Must provide config file as argument!")
     cfg_path = sys.argv[1]
-    cfg = load_config(cfg_path)
-    if not cfg.get('output_dir'):
+    main_cfg = load_config(cfg_path)
+    if not main_cfg.get('__common__'):
+        fatal("Config file must contain a '__common__' key!")
+    if not main_cfg.get('__common__').get('output_dir'):
         fatal("Config file must contain a 'output_dir' key!")
 
     menuitems = []
     subprocessors = [MathProcessor()]
-    processor_cfg = get_processor_config(cfg, 'diragg')
+    processor_cfg = get_processor_config(main_cfg, 'diragg')
     if processor_cfg:
         diragg = DirAggProcessor(processor_cfg)
         subprocessors.append(diragg)
@@ -831,12 +832,12 @@ if __name__ == '__main__':
                 func=diragg.reload_config
             )
         )
-    processor_cfg = get_processor_config(cfg, 'launch')
+    processor_cfg = get_processor_config(main_cfg, 'launch')
     if processor_cfg:
         launch = LaunchProcessor(processor_cfg)
         subprocessors.append(launch)
 
-    processor_cfg = get_processor_config(cfg, 'quickwin')
+    processor_cfg = get_processor_config(main_cfg, 'quickwin')
     processor = Processor(processor_cfg, subprocessors)
     menuitems.append(
         MenuItem(
@@ -856,3 +857,10 @@ if __name__ == '__main__':
         menuitems=menuitems
     )
     App(config, processor)
+
+##==============================================================#
+## SECTION: Main Body                                           #
+##==============================================================#
+
+if __name__ == '__main__':
+    start_app()
