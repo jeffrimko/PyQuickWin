@@ -220,19 +220,18 @@ class WinExcluder:
     """Checks if an OS window should be excluded from the QuickWin list."""
     def __init__(self, exclude_path):
         self._exclude_path = exclude_path
-        self._excludes = []
+        self._exclusions = []
         self.reload_exclusions()
 
     def reload_exclusions(self):
-        self._excludes = []
+        self._exclusions = []
         if self._exclude_path and os.path.isfile(self._exclude_path):
-            with open(self._exclude_path, newline='') as csvfile:
-                reader = csv.reader(csvfile)
-                for row in reader:
-                    self._excludes.append(row)
+            self._exclusions = load_config(self._exclude_path)
 
     def is_excluded(self, winfo: WinInfo):
-        for title,exe in self._excludes:
+        for exclusion in self._exclusions:
+            title = exclusion.get('title')
+            exe = exclusion.get('exe')
             if title and exe and title == winfo.title and exe == winfo.exe:
                 return True
             elif title and title == winfo.title:
