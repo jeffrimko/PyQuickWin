@@ -803,10 +803,11 @@ def get_processor_config(main_cfg, processor_name) -> Optional[Dict[str, str]]:
     processor_cfg = main_cfg.get(processor_name)
     if processor_cfg is None:
         return None
-    common_cfg = main_cfg['__common__']
-    for key, value in common_cfg.items():
-        if not processor_cfg.get(key):
-            processor_cfg[key] = value
+    if processor_name != '__common__':
+        common_cfg = main_cfg['__common__']
+        for key, value in common_cfg.items():
+            if not processor_cfg.get(key):
+                processor_cfg[key] = value
     return processor_cfg
 
 def start_app():
@@ -837,7 +838,7 @@ def start_app():
         launch = LaunchProcessor(processor_cfg)
         subprocessors.append(launch)
 
-    processor_cfg = get_processor_config(main_cfg, 'quickwin')
+    processor_cfg = get_processor_config(main_cfg, 'quickwin') or get_processor_config(main_cfg, '__common__')
     processor = Processor(processor_cfg, subprocessors)
     menuitems.append(
         MenuItem(
