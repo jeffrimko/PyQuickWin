@@ -6,7 +6,6 @@ from __future__ import annotations
 from dataclasses import dataclass, asdict
 from enum import Enum, auto
 from typing import Dict, List, Optional
-import configparser
 import csv
 import os
 import sys
@@ -157,16 +156,16 @@ class HistStore:
         return result
 
     def _save(self):
-        to_dump = None
+        to_save = None
         if self._save_rownum is not None:
-            to_dump = [[entry.cmd, entry.row] for entry in self._hists]
+            to_save = [[entry.cmd, entry.row] for entry in self._hists]
         else:
-            to_dump = [entry.cmd for entry in self._hists]
+            to_save = [entry.cmd for entry in self._hists]
         self._histfile.empty()
-        self._histfile.write(yaml.safe_dump(to_dump))
+        save_output(self._histfile, to_save)
 
     def _load(self):
-        loaded = yaml.safe_load(self._histfile.read()) or []
+        loaded = load_output(self._histfile) or []
         if len(loaded) > 0 and isinstance(loaded[0], str):
             self._hists = [HistEntry(cmd, None) for cmd in loaded]
         else:
@@ -377,14 +376,14 @@ class WinManager:
                 prune.append(k)
             else:
                 outlist.append([asdict(k), v])
-        self._alias_file.write(ujson.dumps(outlist))
+        save_output(self._alias_file, outlist)
         for p in prune:
             del self._alias[p]
 
     def _load_alias_file(self):
         alias = {}
         try:
-            inlist = ujson.loads(self._alias_file.read())
+            inlist = load_output(self._alias_file)
         except Exception:
             return alias
         for i in inlist:
@@ -436,7 +435,7 @@ class DirAggProcessor(SubprocessorBase):
         return "DirAgg processor prefix: " + self.prefix
 
     def reload_config(self):
-        self._cfg = yaml.safe_load(File(self._path).read())
+        self._cfg = load_config(self._path)
         self._selected = None
 
     def use_processor(self, pinput):
@@ -510,7 +509,8 @@ class LaunchProcessor(SubprocessorBase):
     open one."""
     def __init__(self, cfg):
         self._path = cfg['launch_dir']
-        self._histmgr = HistManager(cfg['hist_file'], 0)
+        hist_path = os.path.join(cfg['output_dir'], "hist-launch.json")
+        self._histmgr = HistManager(hist_path, 0)
 
     @property
     def prefix(self) -> str:
@@ -556,8 +556,10 @@ class Processor(ProcessorBase):
     the user to select one to switch to (similar to ALT+TAB)."""
     def __init__(self, cfg, subprocessors=None):
         self._outtext: List[str] = []
-        self._winmgr = WinManager(cfg['alias_file'], cfg.get('exclude_file'))
-        self._histmgr = HistManager(cfg['hist_file'])
+        alias_path = os.path.join(cfg['output_dir'], "alias-quickwin.json")
+        self._winmgr = WinManager(alias_path, cfg.get('exclude_file'))
+        hist_path = os.path.join(cfg['output_dir'], "hist-quickwin.json")
+        self._histmgr = HistManager(hist_path)
         self._subprocessors = subprocessors or []
 
     @property
@@ -775,6 +777,33 @@ def parse(input_cmd: str) -> List[Command]:
             cmds.append(Command(CommandKind.UNKNOWN, totext(tok)))
     return cmds
 
+def save_output(out_file, output):
+    json = ujson.dumps(output)
+    out_file.write(json)
+
+def load_output(out_file):
+    if not out_file.isfile():
+        return None
+    raw = out_file.read()
+    if not raw:
+        return raw
+    return ujson.loads(raw)
+
+def load_config(cfg_path):
+    if not cfg_path:
+        fatal("Config path not provided!")
+    cfile = File(cfg_path)
+    if not cfile.isfile():
+        fatal(f"Config file does not exist! {cfg_path}")
+    return yaml.safe_load(cfile.read())
+
+def get_processor_config(main_cfg, processor_name) -> Optional[Dict[str, str]]:
+    processor_cfg = main_cfg.get(processor_name)
+    if processor_cfg == None:
+        return None
+    processor_cfg['output_dir'] = main_cfg['output_dir']
+    return processor_cfg
+
 ##==============================================================#
 ## SECTION: Main Body                                           #
 ##==============================================================#
@@ -783,15 +812,15 @@ if __name__ == '__main__':
     if len(sys.argv) != 2:
         fatal("Must provide config file as argument!")
     cfg_path = sys.argv[1]
-    cfg = configparser.ConfigParser()
-    cfg.read(cfg_path)
-    if not cfg.has_section('quickwin'):
-        fatal("Config file must contain a 'quickwin' section!")
+    cfg = load_config(cfg_path)
+    if not cfg.get('output_dir'):
+        fatal("Config file must contain a 'output_dir' key!")
 
     menuitems = []
     subprocessors = [MathProcessor()]
-    if cfg.has_section('diragg'):
-        diragg = DirAggProcessor(dict(cfg.items('diragg')))
+    processor_cfg = get_processor_config(cfg, 'diragg')
+    if processor_cfg:
+        diragg = DirAggProcessor(processor_cfg)
         subprocessors.append(diragg)
         menuitems.append(
             MenuItem(
@@ -800,11 +829,13 @@ if __name__ == '__main__':
                 func=diragg.reload_config
             )
         )
-    if cfg.has_section('launch'):
-        launch = LaunchProcessor(dict(cfg.items('launch')))
+    processor_cfg = get_processor_config(cfg, 'launch')
+    if processor_cfg:
+        launch = LaunchProcessor(processor_cfg)
         subprocessors.append(launch)
 
-    processor = Processor(dict(cfg.items('quickwin')), subprocessors)
+    processor_cfg = get_processor_config(cfg, 'quickwin')
+    processor = Processor(processor_cfg, subprocessors)
     menuitems.append(
         MenuItem(
             name='Reload QuickWin exclusions',
