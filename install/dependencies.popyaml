@@ -1,0 +1,54 @@
+# This is a PopPage YAML file used to generate dependency/requirement files.
+
+__opt__:
+    command: make
+    inpath:
+      - https://github.com/jeffrimko/PopPageTemplates/blob/master/check_deps_batch/template.jinja2
+      - https://github.com/jeffrimko/PopPageTemplates/blob/master/python_req/template.jinja2
+    outpath:
+      - ..\_Check_Dependencies.bat
+      - requirements.txt
+
+deps:
+
+  - name: 'Python'
+    desc: 'Python language interpreter.'
+    ref: 'https://www.python.org'
+    ver: '3.8+'
+    cmd: python -V
+
+  - name: 'Pip'
+    desc: 'Python package manager.'
+    ref: 'https://www.python.org'
+    ver: 'latest'
+    cmd: pip -V
+
+  - name: 'Auxly'
+    desc: 'Python helper library.'
+    ref: 'https://pypi.org/project/auxly/'
+    ver: 'latest'
+    cmd: python -c "import auxly"
+
+  - name: 'PyYAML'
+    desc: 'Python YAML parser.'
+    ref: 'https://pypi.org/project/PyYAML/'
+    ver: 'latest'
+    cmd: python -c "import yaml"
+
+  - name: 'psutil'
+    desc: 'Python process monitor.'
+    ref: 'https://pypi.org/project/psutil/'
+    ver: 'latest'
+    cmd: python -c "import psutil"
+
+  - name: 'UltraJSON'
+    desc: 'Python JSON parser.'
+    ref: 'https://pypi.org/project/ujson/'
+    ver: 'latest'
+    cmd: python -c "import ujson"
+
+  - name: 'wxPython'
+    desc: 'Python GUI toolkit.'
+    ref: 'https://pypi.org/project/wxPython/'
+    ver: 'latest'
+    cmd: python -c "import wx"

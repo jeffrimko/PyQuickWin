@@ -1,4 +1,0 @@
-auxly
-pyyaml
-ujson
-wxpython

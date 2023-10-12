@@ -15,6 +15,8 @@ import auxly
 import ujson
 import yaml
 
+sys.path.append(abspath("../lib", __file__))
+
 from qwindow import App, Config, KeyKind, ProcessorBase, ProcessorOutput, MenuItem, SubprocessorBase, subprocessors
 from winctrl import WinControl, WinInfo
 
@@ -508,7 +510,7 @@ class LaunchProcessor(SubprocessorBase):
     open one."""
     def __init__(self, cfg):
         self._path = cfg['launch_dir']
-        hist_path = format_outpath(cfg, "hist-launch")
+        hist_path = format_outpath(cfg, "launch-hist")
         self._histmgr = HistManager(hist_path, 0)
 
     @property
@@ -555,9 +557,9 @@ class Processor(ProcessorBase):
     the user to select one to switch to (similar to ALT+TAB)."""
     def __init__(self, cfg, subprocessors=None):
         self._outtext: List[str] = []
-        alias_path = format_outpath(cfg, "alias-quickwin")
+        alias_path = format_outpath(cfg, "quickwin-alias")
         self._winmgr = WinManager(alias_path, cfg.get('exclude_file'))
-        hist_path = format_outpath(cfg, "hist-quickwin")
+        hist_path = format_outpath(cfg, "quickwin-hist")
         self._histmgr = HistManager(hist_path)
         self._subprocessors = subprocessors or []
 
