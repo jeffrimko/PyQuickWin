@@ -1,7 +1,7 @@
 = PyQuickWin
 
 == Introduction
-This project provides a Python 3.8+ application that allows quick keyboard-based switching between open windows as well as the ability to bookmark frequently used windows for quick return. PyQuickWin supplements standard alt-tabbing while providing additional window movement control for those comfortable navigating with a keyboard.
+This project provides a Python 3.8+ GUI application that allows quick keyboard-based switching between open windows as well as the ability to bookmark frequently used windows for quick return. PyQuickWin supplements standard alt-tabbing while providing additional window movement control for those comfortable navigating with a keyboard. Additional features are provided through optional application modes.
 
 This project is a reimplementation of the original https://github.com/jeffrimko/QuickWin[QuickWin application].
 
@@ -9,18 +9,109 @@ This project is a reimplementation of the original https://github.com/jeffrimko/
 The status of this project is **pre-alpha**. This project is not yet suitable for use other than testing.
 
 == Requirements
-This script was written with the Windows OS in mind although it may work on other operating systems. All dependencies should be listed in the main link:_Check_Dependencies.bat[] which is generated from link:install\dependencies.popyaml[]. Additionally, a Python requirements file is available at link:install\requirements.txt[].
+This project was primarily developed for Windows although it may work on other operating systems. All dependencies should be listed in the main link:_Check_Dependencies.bat[] which was generated from link:install/dependencies.popyaml[]. Additionally, a Python requirements file is available at link:install/requirements.txt[].
 
 == Installation
-TODO: More info coming soon! Run from source using `python app/pyquickwin.pyw examples/config.yaml` and use `CTRL+C` or the taskbar menu to exit.
+This project is intended to be run from source. A Windows Batch file can be used to start the application in the background, e.g.:
+
+--------
+start "" pythonw <APP_DIR_PATH>/pyquickwin.pyw <MAIN_CONFIG_FILE_PATH>
+--------
+
+If issues are encountered with windows that are running in admin mode, run the batch file in admin mode.
 
 == Usage
-TODO: More info coming soon! The basic keyboard shortcuts are:
+The application uses configuration files to specify certain options. Start the application by passing the main configuration file as an argument, e.g.: `python app/pyquickwin.pyw examples/config.yaml`
 
-  - `CTRL+ALT+SPACE` - Opens the QuickWin main window.
-  - `DOWN` or `CTRL+J` - Selects the next window in the list.
-  - `UP` or `CTRL+K` - Selects the previous window in the list.
-  - `ENTER` - Switches to the selected window.
-  - `CTRL+H` - Selects the top window in the list.
-  - `CTRL+L` - Selects the bottom window in the list.
-  - `CTRL+M` - Selects the middle window in the list.
+All configuration files uses the https://yaml.org/[YAML] format. All output files of the application use the https://www.json.org/[JSON] format. The location of these output files can be configured using the `++__common__.output_dir++` YAML key.
+
+The application runs in the background and provides an icon on the taskbar for certain actions. The main window can be opened at any time using the main hotkey which is `CTRL+ALT+SPACE` by default. The main window consists of a command input at the top, an interactive row/column list view, and a text output display at the bottom. The main window layout may change depending on the current mode.
+
+The following hotkeys are common between all the modes:
+
+  - `DOWN` or `CTRL+J` - Selects the next row in the list.
+  - `UP` or `CTRL+K` - Selects the previous row in the list.
+  - `CTRL+H` - Selects the top row in the list.
+  - `CTRL+L` - Selects the bottom row in the list.
+  - `CTRL+M` - Selects the middle row in the list.
+  - `ENTER` - Confirms the currently selected row.
+
+Some modes keep a history of previous commands. These commands can be recalled with the following hotkeys:
+
+  - `CTRL+N` - Recall the next (older) history command.
+  - `CTRL+P` - Recall the previous (newer) history command.
+
+When using commands to filter through the displayed list, note the following input behavior:
+
+  - By default, the input will be case-insensitive fuzzy matched against available items, e.g. `fnc` will match against `Finance`.
+  - Prefixing with `'` will make the input case-insensitive exact matched against available items, e.g. `'fin` will match against `Finance` but `'fnc` will not.
+
+The following sections provide details about the available modes.
+
+=== QuickWin Mode
+The is the default mode. A history of the input commands is kept. This mode displays a list of OS windows that can be switched to along with the executable name and, if one exists, the bookmark alias.
+
+A list of windows to exclude from the main list can be provided via configuration files. Create a YAML file for the exclusions and format it as a list, each entry can contain one or more of the following keys along with their associated values:
+
+  - `title` - The window title to exclude, must be an exact match.
+  - `exe` - The window executable to exclude, must be an exact match.
+
+An example of this YAML file is the following:
+
+[source, yaml]
+--------
+- title: Windows Shell Experience Host
+  exe: ShellExperienceHost.exe
+- title: Alienware Command Center
+  exe: AWCC.exe
+- exe: TextInputHost.exe
+--------
+
+Edit the main configuration file to contain a `quickwin.exclude_file` key with the exclusion YAML file path as the value. The exclusion file can be edited and reloaded while the app is running using the taskbar menu.
+
+While the app is running, the following commands can be used in this mode:
+
+  - `;s <ALIAS_NAME>` - Assign the given bookmark alias `<ALIAS_NAME>` to the currently selected window, e.g. `;s finance`. Note that `ENTER` must be pressed to complete this command.
+  - `;g <ALIAS_NAME>` - Filter the list of windows to the given bookmark alias `<ALIAS_NAME>`, e.g. `;g finance`.
+  - `;t <TITLE_NAME>` - Filter the list of windows to the given title name `<TITLE_NAME>`, e.g. `;t Notepad`. This is the default command and the `;t` prefix is implied.
+  - `;e <EXE_NAME>` - Filter the list of windows to the given executable name `<EXE_NAME>`, e.g. `;e notepad.exe`.
+  - `;l` - Filter the list of windows to those with the same executable name as the currently selected window.
+  - `;o <COLUMN_NAME>` - Orders the list of windows by the given `<COLUMN_NAME>` which can be `title`, `exe`, `alias` or any shortened version of the column, e.g. `;o e` is equivalent to `;o exe`.
+
+Multiple commands can be input at once, e.g.: `;e notepad;g finanace`
+
+The following output files are created by this mode:
+
+  - `quickwin-hist.json` - Maintains the history list.
+  - `quickwin-alias.json` - Maintains the bookmark aliases.
+
+=== Launch Mode
+This mode can be accessed by first entering `.` into the command input. A history of the input commands is kept. This mode displays a list of files/shortcuts from a specified folder, allowing the user to quickly launch one, e.g. a bookmark to a webpage.
+
+Specify the directory to list the contents of via the main configuration file by editing it to contain a `launch.launch_dir` key with the directory path as the value.
+
+The following output file is created by this mode:
+
+  - `launch-hist.json` - Maintains the history list.
+
+=== Directory Aggregate Mode
+This mode can be accessed by first entering `>` into the command input. This mode allows directories of similar type to be aggregated together under a category. This is useful if directories are split amongst separate drives or locations.
+
+The categories and the list of directories to aggregate can be provided via configuration files. Create a YAML file and format it with a key for each category with a value of a list of directories to aggregate. An example of this YAML file is the following:
+
+[source, yaml]
+--------
+Finance:
+  - C:\My Stuff\Finance
+  - D:\Shared Stuff\Finance
+--------
+
+Edit the main configuration file to contain a `diragg.locations_file` key with the directory aggregate YAML file path as the value.
+
+While the app is running, the following hotkeys can be used in this mode:
+
+  - `CTRL+I` - At the categories list, moves into the selected category. The `ENTER` key will do the same.
+  - `CTRL+O` - When in a category, return to the list of available categories.
+
+=== Math Mode
+This mode can be accessed by first entering `=` into the command input. This mode allows the user to enter simple math operations and see the result, e.g. `=(2**12) / 8` will show 2 to the power of 12 divided by 8.
