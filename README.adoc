@@ -35,6 +35,11 @@ Some modes keep a history of previous commands. These commands can be recalled w
   - `CTRL+N` - Recall the next (older) history command.
   - `CTRL+P` - Recall the previous (newer) history command.
 
+When using commands to filter through the displayed list, note the following input behavior:
+
+  - By default, the input will be case-insensitive fuzzy matched against available items, e.g. `fnc` will match against `Finance`.
+  - Prefixing with `'` will make the input case-insensitive exact matched against available items, e.g. `'fin` will match against `Finance`.
+
 The following sections provide details about the available modes.
 
 === QuickWin Mode
@@ -62,7 +67,7 @@ While the app is running, the following commands can be used in this mode:
 
   - `;s <ALIAS_NAME>` - Assign the given bookmark alias `<ALIAS_NAME>` to the currently selected window, e.g. `;s finance`. Note that `ENTER` must be pressed to complete this command.
   - `;g <ALIAS_NAME>` - Filter the list of windows to the given bookmark alias `<ALIAS_NAME>`, e.g. `;g finance`.
-  - `;t <TITLE_NAME>` - Filter the list of windows to the given title name `<TITLE_NAME>`, e.g. `;t Notepad`.
+  - `;t <TITLE_NAME>` - Filter the list of windows to the given title name `<TITLE_NAME>`, e.g. `;t Notepad`. This is the default command and the `;t` prefix is implied.
   - `;e <EXE_NAME>` - Filter the list of windows to the given executable name `<EXE_NAME>`, e.g. `;e notepad.exe`.
   - `;l` - Filter the list of windows to those with the same executable name as the currently selected window.
   - `;o <COLUMN_NAME>` - Orders the list of windows by the given `<COLUMN_NAME>` which can be `title`, `exe`, `alias` or any shortened version of the column, e.g. `;o e` is equivalent to `;o exe`.
