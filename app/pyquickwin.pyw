@@ -424,7 +424,7 @@ class DirAggProcessor(SubprocessorBase):
     def __init__(self, cfg):
         self._path = cfg['locations_file']
         self._cfg = {}
-        self._selected = None
+        self._category = None
         self.reload_config()
 
     @property
@@ -437,33 +437,33 @@ class DirAggProcessor(SubprocessorBase):
 
     def reload_config(self):
         self._cfg = load_config(self._path)
-        self._selected = None
+        self._category = None
 
     def use_processor(self, pinput):
         if len(pinput.cmd) == 0:
-            self._selected = None
+            self._category = None
             return False
         return pinput.cmd.startswith(self.prefix)
 
     def update(self, pinput):
         cmdtext = pinput.cmd[1:].lstrip()
         if pinput.key == KeyKind.OUTOF:
-            self._selected = None
-        if self._selected is None:
-            return self._show_root(pinput, cmdtext)
-        return self._show_selected(pinput, cmdtext)
+            self._category = None
+        if self._category is None:
+            return self._show_available_categories(pinput, cmdtext)
+        return self._show_selected_category(pinput, cmdtext)
 
-    def _show_selected(self, pinput, cmdtext):
+    def _show_selected_category(self, pinput, cmdtext):
         if pinput.is_complete:
             name, path = pinput.selrow
             dpath = Dir(path, name)
             auxly.open(dpath)
             return ProcessorOutput(hide=True)
         rows = []
-        selected = self._cfg[self._selected]
+        category = self._cfg[self._category]
         outtext = []
-        outtext.append(f"DirAgg selected: {self._selected}")
-        for path in selected:
+        outtext.append(f"DirAgg selected category: {self._category}")
+        for path in category:
             if not Dir(path).exists():
                 outtext.append(f"Path not found: {path}")
                 continue
@@ -484,9 +484,9 @@ class DirAggProcessor(SubprocessorBase):
         output.add_out("\n".join(outtext))
         return output
 
-    def _show_root(self, pinput, cmdtext):
+    def _show_available_categories(self, pinput, cmdtext):
         if pinput.selrow and (pinput.is_complete or pinput.key == KeyKind.INTO):
-            self._selected = pinput.selrow[0]
+            self._category = pinput.selrow[0]
             output = ProcessorOutput()
             output.add_cmd(self.prefix)
             return output
@@ -502,7 +502,7 @@ class DirAggProcessor(SubprocessorBase):
             rows,
             pinput.lstview.selnum
         )
-        output.add_out("Select a DirAgg")
+        output.add_out("Select a DirAgg category")
         return output
 
 class LaunchProcessor(SubprocessorBase):
