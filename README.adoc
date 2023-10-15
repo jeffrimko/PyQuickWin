@@ -23,7 +23,7 @@ If issues are encountered with windows that are running in admin mode, run the b
 == Usage
 The application uses configuration files to specify certain options. Start the application by passing the main configuration file as an argument, e.g.: `python app/pyquickwin.pyw examples/config.yaml`
 
-All configuration files uses the https://yaml.org/[YAML] format. All output files of the application use the https://www.json.org/[JSON] format. The location of these output files can be configured using the `__common__.output_dir` YAML key.
+All configuration files uses the https://yaml.org/[YAML] format. All output files of the application use the https://www.json.org/[JSON] format. The location of these output files can be configured using the `++__common__.output_dir++` YAML key.
 
 The application runs in the background and provides an icon on the taskbar for certain actions. The main window can be opened at any time using the main hotkey which is `CTRL+ALT+SPACE` by default. The main window consists of a command input at the top, an interactive row/column list view, and a text output display at the bottom. The main window layout may change depending on the current mode.
 
@@ -58,7 +58,7 @@ A list of windows to exclude from the main list can be provided via configuratio
 
 An example of this YAML file is the following:
 
-[yaml]
+[source, yaml]
 --------
 - title: Windows Shell Experience Host
   exe: ShellExperienceHost.exe
@@ -99,7 +99,7 @@ This mode can be accessed by first entering `>` into the command input. This mod
 
 The categories and the list of directories to aggregate can be provided via configuration files. Create a YAML file and format it with a key for each category with a value of a list of directories to aggregate. An example of this YAML file is the following:
 
-[yaml]
+[source, yaml]
 --------
 Finance:
   - C:\My Stuff\Finance
