@@ -322,7 +322,7 @@ class MainWindow(wx.MiniFrame):
                 ord('I'),
                 wx.WXK_SUBTRACT,
                 wx.WXK_ADD,
-                61 # Non-numeric =
+                61  # Non-numeric equals sign (=).
             ]
             if event.GetKeyCode() in ignore_keys:
                 return  # Prevents default key behavior.
