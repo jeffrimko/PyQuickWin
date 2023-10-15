@@ -15,7 +15,7 @@ This project was primarily developed for Windows although it may work on other o
 TODO: More info coming soon! Run from source using `python app/pyquickwin.pyw examples/config.yaml` and use `CTRL+C` or the taskbar menu to exit.
 
 == Usage
-The application uses configuration files to specify certain options. Start the application by passing the main configuration file as an argument, for example: `python app/pyquickwin.pyw examples/config.yaml`
+The application uses configuration files to specify certain options. Start the application by passing the main configuration file as an argument, e.g.: `python app/pyquickwin.pyw examples/config.yaml`
 
 All configuration files uses the https://yaml.org/[YAML] format. All output files of the application use the https://www.json.org/[JSON] format. The location of these output files can be configured using the `__common__.output_dir` YAML key.
 
@@ -38,9 +38,9 @@ Some modes keep a history of previous commands. These commands can be recalled w
 The following sections provide details about the available modes.
 
 === QuickWin Mode
-The is the default mode and keeps a history of entered commands. It displays a list of OS windows that can be switched to along with the executable name and, if one exists, the bookmark alias.
+The is the default mode. A history of the input commands is kept. This mode displays a list of OS windows that can be switched to along with the executable name and, if one exists, the bookmark alias.
 
-A list of windows to exclude from the list can be provided via configuration files. Create a YAML file for the exclusions and format it as a list, each entry can contain one or more of the following keys along with their associated values:
+A list of windows to exclude from the main list can be provided via configuration files. Create a YAML file for the exclusions and format it as a list, each entry can contain one or more of the following keys along with their associated values:
 
   - `title` - The window title to exclude, must be an exact match.
   - `exe` - The window executable to exclude, must be an exact match.
@@ -58,7 +58,7 @@ An example of this YAML file is the following:
 
 Edit the main configuration file to contain a `quickwin.exclude_file` key with the exclusion YAML file path as the value. The exclusion file can be edited and reloaded while the app is running using the taskbar menu.
 
-While the app is running, the following commands can be used:
+While the app is running, the following commands can be used in this mode:
 
   - `;s <ALIAS_NAME>` - Assign the given bookmark alias `<ALIAS_NAME>` to the currently selected window, e.g. `;s finance`. Note that `ENTER` must be pressed to complete this command.
   - `;g <ALIAS_NAME>` - Filter the list of windows to the given bookmark alias `<ALIAS_NAME>`, e.g. `;g finance`.
@@ -67,16 +67,40 @@ While the app is running, the following commands can be used:
   - `;l` - Filter the list of windows to those with the same executable name as the currently selected window.
   - `;o <COLUMN_NAME>` - Orders the list of windows by the given `<COLUMN_NAME>` which can be `title`, `exe`, `alias` or any shortened version of the column, e.g. `;o e` is equivalent to `;o exe`.
 
+Multiple commands can be input at once, e.g.: `;e notepad;g finanace`
+
 The following output files are created by this mode:
 
   - `quickwin-hist.json` - Maintains the history list.
   - `quickwin-alias.json` - Maintains the bookmark aliases.
 
 === Launch Mode
-TODO
+This mode can be accessed by first entering `.` into the command input. A history of the input commands is kept. This mode displays a list of files/shortcuts from a specified folder, allowing the user to quickly launch one, e.g. a bookmark to a webpage.
+
+Specify the directory to list the contents of via the main configuration file by editing it to contain a `launch.launch_dir` key with the directory path as the value.
+
+The following output file is created by this mode:
+
+  - `launch-hist.json` - Maintains the history list.
 
 === Directory Aggregate Mode
-TODO
+This mode can be accessed by first entering `>` into the command input. This mode allows directories of similar type to be aggregated together under a category. This is useful if directories are split amongst separate drives or locations.
+
+The categories and the list of directories to aggregate can be provided via configuration files. Create a YAML file and format it with a key for each category with a value of a list of directories to aggregate. An example of this YAML file is the following:
+
+[yaml]
+--------
+Finance:
+  - C:\My Stuff\Finance
+  - D:\Shared Stuff\Finance
+--------
+
+Edit the main configuration file to contain a `diragg.locations_file` key with the directory aggregate YAML file path as the value.
+
+While the app is running, the following hotkeys can be used in this mode:
+
+  - `CTRL+I` - At the categories list, moves into the selected category. The `ENTER` key will do the same.
+  - `CTRL+O` - When in a category, return to the list of available categories.
 
 === Math Mode
-TODO
+This mode can be accessed by first entering `=` into the command input. This mode allows the user to enter simple math operations and see the result, e.g. `=(2**12) / 8` will show 2 to the power of 12 divided by 8.
