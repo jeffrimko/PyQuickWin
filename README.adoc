@@ -1,7 +1,7 @@
 = PyQuickWin
 
 == Introduction
-This project provides a Python 3.8+ application that allows quick keyboard-based switching between open windows as well as the ability to bookmark frequently used windows for quick return. PyQuickWin supplements standard alt-tabbing while providing additional window movement control for those comfortable navigating with a keyboard.
+This project provides a Python 3.8+ GUI application that allows quick keyboard-based switching between open windows as well as the ability to bookmark frequently used windows for quick return. PyQuickWin supplements standard alt-tabbing while providing additional window movement control for those comfortable navigating with a keyboard. Additional features are provided through optional application modes.
 
 This project is a reimplementation of the original https://github.com/jeffrimko/QuickWin[QuickWin application].
 
@@ -9,18 +9,74 @@ This project is a reimplementation of the original https://github.com/jeffrimko/
 The status of this project is **pre-alpha**. This project is not yet suitable for use other than testing.
 
 == Requirements
-This script was written with the Windows OS in mind although it may work on other operating systems. All dependencies should be listed in the main link:_Check_Dependencies.bat[] which is generated from link:install\dependencies.popyaml[]. Additionally, a Python requirements file is available at link:install\requirements.txt[].
+This project was primarily developed for Windows although it may work on other operating systems. All dependencies should be listed in the main link:_Check_Dependencies.bat[] which was generated from link:install/dependencies.popyaml[]. Additionally, a Python requirements file is available at link:install/requirements.txt[].
 
 == Installation
 TODO: More info coming soon! Run from source using `python app/pyquickwin.pyw examples/config.yaml` and use `CTRL+C` or the taskbar menu to exit.
 
 == Usage
-TODO: More info coming soon! The basic keyboard shortcuts are:
+The application uses configuration files to specify certain options. Start the application by passing the main configuration file as an argument, for example: `python app/pyquickwin.pyw examples/config.yaml`
 
-  - `CTRL+ALT+SPACE` - Opens the QuickWin main window.
-  - `DOWN` or `CTRL+J` - Selects the next window in the list.
-  - `UP` or `CTRL+K` - Selects the previous window in the list.
-  - `ENTER` - Switches to the selected window.
-  - `CTRL+H` - Selects the top window in the list.
-  - `CTRL+L` - Selects the bottom window in the list.
-  - `CTRL+M` - Selects the middle window in the list.
+All configuration files uses the https://yaml.org/[YAML] format. All output files of the application use the https://www.json.org/[JSON] format. The location of these output files can be configured using the `__common__.output_dir` YAML key.
+
+The application runs in the background and provides an icon on the taskbar for certain actions. The main window can be opened at any time using the main hotkey which is `CTRL+ALT+SPACE` by default. The main window consists of a command input at the top, an interactive row/column list view, and a text output display at the bottom. The main window layout may change depending on the current mode.
+
+The following hotkeys are common between all the modes:
+
+  - `DOWN` or `CTRL+J` - Selects the next row in the list.
+  - `UP` or `CTRL+K` - Selects the previous row in the list.
+  - `CTRL+H` - Selects the top row in the list.
+  - `CTRL+L` - Selects the bottom row in the list.
+  - `CTRL+M` - Selects the middle row in the list.
+  - `ENTER` - Confirms the currently selected row.
+
+Some modes keep a history of previous commands. These commands can be recalled with the following hotkeys:
+
+  - `CTRL+N` - Recall the next (older) history command.
+  - `CTRL+P` - Recall the previous (newer) history command.
+
+The following sections provide details about the available modes.
+
+=== QuickWin Mode
+The is the default mode and keeps a history of entered commands. It displays a list of OS windows that can be switched to along with the executable name and, if one exists, the bookmark alias.
+
+A list of windows to exclude from the list can be provided via configuration files. Create a YAML file for the exclusions and format it as a list, each entry can contain one or more of the following keys along with their associated values:
+
+  - `title` - The window title to exclude, must be an exact match.
+  - `exe` - The window executable to exclude, must be an exact match.
+
+An example of this YAML file is the following:
+
+[yaml]
+--------
+- title: Windows Shell Experience Host
+  exe: ShellExperienceHost.exe
+- title: Alienware Command Center
+  exe: AWCC.exe
+- exe: TextInputHost.exe
+--------
+
+Edit the main configuration file to contain a `quickwin.exclude_file` key with the exclusion YAML file path as the value. The exclusion file can be edited and reloaded while the app is running using the taskbar menu.
+
+While the app is running, the following commands can be used:
+
+  - `;s <ALIAS_NAME>` - Assign the given bookmark alias `<ALIAS_NAME>` to the currently selected window, e.g. `;s finance`. Note that `ENTER` must be pressed to complete this command.
+  - `;g <ALIAS_NAME>` - Filter the list of windows to the given bookmark alias `<ALIAS_NAME>`, e.g. `;g finance`.
+  - `;t <TITLE_NAME>` - Filter the list of windows to the given title name `<TITLE_NAME>`, e.g. `;t Notepad`.
+  - `;e <EXE_NAME>` - Filter the list of windows to the given executable name `<EXE_NAME>`, e.g. `;e notepad.exe`.
+  - `;l` - Filter the list of windows to those with the same executable name as the currently selected window.
+  - `;o <COLUMN_NAME>` - Orders the list of windows by the given `<COLUMN_NAME>` which can be `title`, `exe`, `alias` or any shortened version of the column, e.g. `;o e` is equivalent to `;o exe`.
+
+The following output files are created by this mode:
+
+  - `quickwin-hist.json` - Maintains the history list.
+  - `quickwin-alias.json` - Maintains the bookmark aliases.
+
+=== Launch Mode
+TODO
+
+=== Directory Aggregate Mode
+TODO
+
+=== Math Mode
+TODO
