@@ -584,7 +584,7 @@ class Processor(ProcessorBase):
     @update_histmgr
     def update(self, pinput):
         self._winmgr.update(pinput)
-        cmds = parse(pinput.cmdtext.text)
+        cmds = parse_cmds(pinput.cmdtext.text)
         if (not pinput.cmdtext.text) and (not cmds):
             self._winmgr.reset()
 
@@ -734,11 +734,11 @@ def format_num(num: int, padref=0) -> str:
     padlen = len(str(padref))
     return str(num).zfill(padlen)
 
-def parse(input_cmd: str) -> List[Command]:
+def parse_cmds(input_cmd: str) -> List[Command]:
     def tokenize():
         toks = []
         tok = ""
-        for c in input_cmd:
+        for c in input_cmd.strip():
             if c == ";":
                 if tok:
                     toks.append(tok)
@@ -755,7 +755,7 @@ def parse(input_cmd: str) -> List[Command]:
     for tok in tokenize():
         if not tok:
             continue
-        tok = tok.lstrip()
+        tok = tok.strip()
         if not tok.startswith(";"):
             cmds.append(Command(CommandKind.TITLE, tok))
             continue
