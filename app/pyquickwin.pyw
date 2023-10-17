@@ -759,6 +759,7 @@ def parse_cmds(input_cmd: str) -> List[Command]:
         if not tok.startswith(";"):
             cmds.append(Command(CommandKind.TITLE, tok))
             continue
+        # The lstrip allows spaces between the semicolon and command character.
         tok = tok[1:].lstrip()
         if tok.startswith("t "):
             cmds.append(Command(CommandKind.TITLE, totext(tok)))
