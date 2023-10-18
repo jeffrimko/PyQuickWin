@@ -584,7 +584,7 @@ class Processor(ProcessorBase):
     @update_histmgr
     def update(self, pinput):
         self._winmgr.update(pinput)
-        cmds = parse(pinput.cmdtext.text)
+        cmds = parse_cmds(pinput.cmdtext.text)
         if (not pinput.cmdtext.text) and (not cmds):
             self._winmgr.reset()
 
@@ -734,11 +734,11 @@ def format_num(num: int, padref=0) -> str:
     padlen = len(str(padref))
     return str(num).zfill(padlen)
 
-def parse(input_cmd: str) -> List[Command]:
+def parse_cmds(input_cmd: str) -> List[Command]:
     def tokenize():
         toks = []
         tok = ""
-        for c in input_cmd:
+        for c in input_cmd.strip():
             if c == ";":
                 if tok:
                     toks.append(tok)
@@ -746,36 +746,43 @@ def parse(input_cmd: str) -> List[Command]:
             tok += c
         toks.append(tok)
         return toks
-    def totext(tok):
+    def get_text(tok):
         segs = tok.split(maxsplit=1)
         if len(segs) < 2:
             return ""
         return segs[1]
+    def is_command_char(tok: str, char: str, allow_text=True) -> bool:
+        if tok.strip() == char:
+            return True
+        if allow_text and tok.startswith(char + " "):
+            return True
+        return False
     cmds = []
     for tok in tokenize():
         if not tok:
             continue
-        tok = tok.lstrip()
+        tok = tok.strip()
         if not tok.startswith(";"):
             cmds.append(Command(CommandKind.TITLE, tok))
             continue
+        # The lstrip allows spaces between the semicolon and command character.
         tok = tok[1:].lstrip()
-        if tok.startswith("t "):
-            cmds.append(Command(CommandKind.TITLE, totext(tok)))
-        elif tok.startswith("e "):
-            cmds.append(Command(CommandKind.EXE, totext(tok)))
-        elif tok == "g" or tok.startswith("g "):
-            cmds.append(Command(CommandKind.GET, totext(tok)))
-        elif tok == "s" or tok.startswith("s "):
-            cmds.append(Command(CommandKind.SET, totext(tok)))
-        elif tok.startswith("o"):
-            cmds.append(Command(CommandKind.ORDER, totext(tok)))
-        elif tok == "l" or tok.startswith("l "):
-            cmds.append(Command(CommandKind.LIMIT, totext(tok)))
-        elif tok.strip() == "d":
-            cmds.append(Command(CommandKind.DELETE, totext(tok)))
+        if is_command_char(tok, "t"):
+            cmds.append(Command(CommandKind.TITLE, get_text(tok)))
+        elif is_command_char(tok, "e"):
+            cmds.append(Command(CommandKind.EXE, get_text(tok)))
+        elif is_command_char(tok, "g"):
+            cmds.append(Command(CommandKind.GET, get_text(tok)))
+        elif is_command_char(tok, "s"):
+            cmds.append(Command(CommandKind.SET, get_text(tok)))
+        elif is_command_char(tok, "o"):
+            cmds.append(Command(CommandKind.ORDER, get_text(tok)))
+        elif is_command_char(tok, "l", False):
+            cmds.append(Command(CommandKind.LIMIT, ""))
+        elif is_command_char(tok, "d", False):
+            cmds.append(Command(CommandKind.DELETE, ""))
         else:
-            cmds.append(Command(CommandKind.UNKNOWN, totext(tok)))
+            cmds.append(Command(CommandKind.UNKNOWN, get_text(tok)))
     return cmds
 
 def format_outpath(cfg, file_stem) -> str:

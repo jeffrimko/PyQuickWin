@@ -71,14 +71,22 @@ Edit the main configuration file to contain a `quickwin.exclude_file` key with t
 
 In this mode, the following commands can be used:
 
-  - `;s <ALIAS_NAME>` - Assign the given bookmark alias `<ALIAS_NAME>` to the currently selected window, e.g. `;s finance`. Note that `ENTER` must be pressed to complete this command.
+  - `;s <ALIAS_NAME>` - Set the given bookmark alias `<ALIAS_NAME>` to the currently selected window, e.g. `;s finance`. Note that `ENTER` must be pressed to complete this command.
   - `;g <ALIAS_NAME>` - Filter the list of windows to the given bookmark alias `<ALIAS_NAME>`, e.g. `;g finance`.
+  - `;d` - Delete all saved bookmark aliases.
   - `;t <TITLE_NAME>` - Filter the list of windows to the given title name `<TITLE_NAME>`, e.g. `;t Notepad`. This is the default command and the `;t` prefix is implied.
   - `;e <EXE_NAME>` - Filter the list of windows to the given executable name `<EXE_NAME>`, e.g. `;e notepad.exe`.
   - `;l` - Filter the list of windows to those with the same executable name as the currently selected window.
   - `;o <COLUMN_NAME>` - Orders the list of windows by the given `<COLUMN_NAME>` which can be `title`, `exe`, `alias` or any shortened version of the column, e.g. `;o e` is equivalent to `;o exe`.
 
-Multiple commands can be input at once, e.g.: `;e notepad;g finanace`
+Additional notes about the commands:
+
+  - White space between the semicolon and the command character is ignored, e.g.: `; s my alias` is equivalent to `;s my alias`
+  - Multiple commands can be input at once, e.g.: `;e notepad;o title;s finanace`
+  - White space before and after a command is ignored, e.g.: `;e notepad ;o title` is equivalent to `;e notepad;o title`
+  - A window may only have a single bookmark alias at a time.
+  - If an existing bookmark alias name is set on a different window, the alias name will be moved to the new window, i.e. multiple aliases with the same name cannot exist.
+  - To delete a bookmark alias on a single window, set an empty alias name on the window, e.g.: `;s`
 
 The following output files are created by this mode:
 
