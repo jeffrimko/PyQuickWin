@@ -4,11 +4,8 @@
 ## SECTION: Imports                                             #
 ##==============================================================#
 
-from io import StringIO
-import os
 import os.path as op
 import sys
-import subprocess
 import unittest
 
 appdir = op.normpath(op.join(op.abspath(op.dirname(__file__)), r"../app"))
