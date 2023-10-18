@@ -143,7 +143,8 @@ class TestCase(unittest.TestCase):
     def test_delete_with_text_should_parse_as_unknown(self):
         self.assertParsesToSingleUnkownCommand(";d something")
 
-    def test_command_longer_than_single_char_should_parse_as_unknown(self):
+    def test_commands_longer_than_single_char_should_parse_as_unknown(self):
+        self.assertParsesToSingleUnkownCommand(";ge")
         self.assertParsesToSingleUnkownCommand(";get")
         self.assertParsesToSingleUnkownCommand(";set")
         self.assertParsesToSingleUnkownCommand(";title")
