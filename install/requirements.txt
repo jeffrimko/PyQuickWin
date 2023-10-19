@@ -1,3 +1,4 @@
+attrdict3
 auxly
 PyYAML
 psutil
