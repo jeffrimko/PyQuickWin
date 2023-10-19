@@ -14,6 +14,7 @@ import unittest
 
 def _add_relative_dir_to_syspath(reldir):
     absdir = op.normpath(op.join(op.abspath(op.dirname(__file__)), reldir))
+    import os; print(os.listdir(absdir))
     sys.path.insert(0, absdir)
 
 ##==============================================================#
