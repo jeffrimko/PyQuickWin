@@ -80,6 +80,23 @@ if auxly.iswindows():
             return False
         return True
 
+##-- Linux  ----------------------------------------------------#
+
+if auxly.islinux():
+
+    @dataclass(frozen=True, eq=True)
+    class WinInfo(WinInfoBase):
+        pass  # Not implemented
+
+    class WinControl(WinControlBase):
+        @staticmethod
+        def show(winfo):
+            pass  # Not implemented
+
+        @staticmethod
+        def list():
+            pass  # Not implemented
+
 ##==============================================================#
 ## SECTION: Main Body                                           #
 ##==============================================================#
