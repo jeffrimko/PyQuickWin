@@ -15,13 +15,13 @@ This project was primarily developed for Windows although it may work on other o
 This project is intended to be run from source. A Windows Batch file can be used to start the application in the background, e.g.:
 
 --------
-start "" pythonw <APP_DIR_PATH>/pyquickwin.pyw <MAIN_CONFIG_FILE_PATH>
+start "" pythonw <APP_DIR_PATH>/pyquickwin.py <MAIN_CONFIG_FILE_PATH>
 --------
 
 If issues are encountered with windows that are running in admin mode, run the batch file in admin mode.
 
 == Usage
-The application uses configuration files to specify certain options. Start the application by passing the main configuration file as an argument, e.g.: `python app/pyquickwin.pyw examples/config.yaml`
+The application uses configuration files to specify certain options. Start the application by passing the main configuration file as an argument, e.g.: `python app/pyquickwin.py examples/config.yaml`
 
 All configuration files uses the https://yaml.org/[YAML] format. All output files of the application use the https://www.json.org/[JSON] format. The location of these output files can be configured using the `++__common__.output_dir++` YAML key.
 
