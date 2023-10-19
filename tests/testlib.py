@@ -8,7 +8,19 @@ import os.path as op
 import sys
 import unittest
 
-appdir = op.normpath(op.join(op.abspath(op.dirname(__file__)), r"../app"))
-sys.path.insert(0, appdir)
-libdir = op.normpath(op.join(op.abspath(op.dirname(__file__)), r"../lib"))
-sys.path.insert(0, libdir)
+##==============================================================#
+## SECTION: Function Definitions                                #
+##==============================================================#
+
+def _add_relative_dir_to_syspath(reldir):
+    absdir = op.normpath(op.join(op.abspath(op.dirname(__file__)), reldir))
+    sys.path.insert(0, absdir)
+
+##==============================================================#
+## SECTION: Special Setup                                       #
+##==============================================================#
+
+_add_relative_dir_to_syspath("../app")
+_add_relative_dir_to_syspath("../lib")
+
+print(sys.path)
