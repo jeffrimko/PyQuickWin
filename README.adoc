@@ -35,6 +35,7 @@ The following hotkeys are common between all the modes:
   - `CTRL+L` - Selects the bottom row in the list.
   - `CTRL+M` - Selects the middle row in the list.
   - `ENTER` - Confirms the currently selected row.
+  - `CTRL+D` - Delete current command input.
 
 Some modes keep a history of previous commands. These commands can be recalled with the following hotkeys:
 
