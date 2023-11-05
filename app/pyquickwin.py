@@ -213,7 +213,9 @@ class HistManager:
         return self._hists.get(self._cmd_prefix, self._pointer).cmd
 
     def _try_set_cmd_prefix(self, cmd_prefix):
-        if self._cmd_prefix is None:
+        should_set = self._cmd_prefix is None
+        should_set |= self._hists.len(self._cmd_prefix) == 0
+        if should_set:
             self._cmd_prefix = cmd_prefix
         elif cmd_prefix == '':
             self._cmd_prefix = None
