@@ -5,6 +5,7 @@
 ##==============================================================#
 
 from testlib import *
+from testlib.strcompare import StrCompareTestCase
 
 from pyquickwin import StrCompare
 
@@ -12,7 +13,7 @@ from pyquickwin import StrCompare
 ## SECTION: Class Definitions                                   #
 ##==============================================================#
 
-class TestCase(unittest.TestCase):
+class TestCase(StrCompareTestCase):
 
     def test_partial_input_should_return_match(self):
         self.assertTrue(StrCompare.progressive("f", "finance"))
@@ -23,12 +24,6 @@ class TestCase(unittest.TestCase):
         self.assertTrue(StrCompare.progressive("ice", "finance"))
         self.assertTrue(StrCompare.progressive("nn", "finance"))
         self.assertTrue(StrCompare.progressive("financ", "finance"))
-
-    def test_empty_input_should_return_match(self):
-        self.assertTrue(StrCompare.progressive("", "finance"))
-
-    def test_exact_input_should_return_match(self):
-        self.assertTrue(StrCompare.progressive("finance", "finance"))
 
     def test_match_should_be_case_insensitive(self):
         self.assertTrue(StrCompare.progressive("F", "finance"))
@@ -52,4 +47,3 @@ class TestCase(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-

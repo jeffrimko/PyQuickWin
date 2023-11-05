@@ -20,5 +20,6 @@ def _add_relative_dir_to_syspath(reldir):
 ## SECTION: Special Setup                                       #
 ##==============================================================#
 
-_add_relative_dir_to_syspath("../app")
-_add_relative_dir_to_syspath("../lib")
+_add_relative_dir_to_syspath("../../app")
+_add_relative_dir_to_syspath("../../lib")
+_add_relative_dir_to_syspath(".")
