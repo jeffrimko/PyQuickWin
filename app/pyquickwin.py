@@ -614,6 +614,7 @@ class Processor(ProcessorBase):
         output.add_rows(
             ["Number", "Title", "Executable", "Alias"],
             [6, 74, 10, 10],
+            [lambda: print('hi')],
             rows,
             self._winmgr.selected_index,
         )

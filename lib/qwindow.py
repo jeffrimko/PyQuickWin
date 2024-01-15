@@ -73,6 +73,7 @@ class CmdtextState:
 class LstviewState:
     colnames: List[str] = field(default_factory=lambda: [])
     colprops: List[int] = field(default_factory=lambda: [])
+    colclick: Optional[List[Callable]] = None
     rows: List[List[str]] = field(default_factory=lambda: [])
     selnum: Optional[int] = None
     hide: bool = False
@@ -119,8 +120,8 @@ class ProcessorOutput:
     def hide_rows(self):
         self.lstview = LstviewState(hide=True)
 
-    def add_rows(self, names, props, rows, selnum=None):
-        self.lstview = LstviewState(colnames=names, colprops=props, rows=rows, selnum=selnum)
+    def add_rows(self, names, props, click, rows, selnum=None):
+        self.lstview = LstviewState(colnames=names, colprops=props, colclick=click, rows=rows, selnum=selnum)
 
 class ProcessorBase(ABC):
     @abstractproperty
@@ -237,6 +238,7 @@ class App(wx.App):
 
 class MainWindow(wx.MiniFrame):
     def __init__(self, app):
+        self.colclick = []
         self.size = _WxUtils.CalcSize(0, app.config.winpct)
         super(MainWindow, self).__init__(None, -1, "", size=self.size, style=wx.NO_BORDER | wx.STAY_ON_TOP)
         self.app = app
@@ -254,9 +256,7 @@ class MainWindow(wx.MiniFrame):
 
         lstview_prop, outtext_prop = self.app.config.comprops
         self.lstview = dv.DataViewListCtrl(panel)
-        def temp(x):
-            print("tmp", x)
-        self.lstview.Bind(dv.EVT_DATAVIEW_COLUMN_HEADER_CLICK, temp)
+        self.lstview.Bind(dv.EVT_DATAVIEW_COLUMN_HEADER_CLICK, self.OnColClick)
         psizer.Add(self.lstview, proportion=lstview_prop, flag=wx.RIGHT | wx.LEFT | wx.DOWN | wx.EXPAND, border=8)
 
         self.outtext = wx.TextCtrl(panel, style=wx.TE_MULTILINE | wx.TE_READONLY | wx.TE_RICH2)
@@ -410,6 +410,12 @@ class MainWindow(wx.MiniFrame):
         self.cmdtext.SetValue('')
         self.cmdtext.SetFocus()
 
+    def OnColClick(self, event):
+        colnum = event.GetColumn()
+        if len(self.colclick) < (colnum + 1):
+            return
+        self.colclick[colnum]()
+
     def UpdateOutput(self, complete=False, key=None):
         if not self.IsShown():
             return
@@ -422,6 +428,11 @@ class MainWindow(wx.MiniFrame):
 
         if out is None:
             return
+
+        if out.lstview and out.lstview.colclick and len(out.lstview.colclick) > 0:
+            self.colclick = out.lstview.colclick
+        else:
+            self.colclick = []
 
         self.pinput.was_hidden = False
         if out.hide:
