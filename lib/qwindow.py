@@ -254,6 +254,9 @@ class MainWindow(wx.MiniFrame):
 
         lstview_prop, outtext_prop = self.app.config.comprops
         self.lstview = dv.DataViewListCtrl(panel)
+        def temp(x):
+            print("tmp", x)
+        self.lstview.Bind(dv.EVT_DATAVIEW_COLUMN_HEADER_CLICK, temp)
         psizer.Add(self.lstview, proportion=lstview_prop, flag=wx.RIGHT | wx.LEFT | wx.DOWN | wx.EXPAND, border=8)
 
         self.outtext = wx.TextCtrl(panel, style=wx.TE_MULTILINE | wx.TE_READONLY | wx.TE_RICH2)

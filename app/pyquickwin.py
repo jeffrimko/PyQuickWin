@@ -548,7 +548,7 @@ class LaunchProcessor(SubprocessorBase):
         output.add_out(f"Launch items found: {len(rows)}")
         output.add_rows(
             ["Name", "Ext"],
-            [3,1],
+            [3, 1],
             rows,
             selnum
         )
