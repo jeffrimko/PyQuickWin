@@ -120,8 +120,8 @@ class ProcessorOutput:
     def hide_rows(self):
         self.lstview = LstviewState(hide=True)
 
-    def add_rows(self, names, props, click, rows, selnum=None):
-        self.lstview = LstviewState(colnames=names, colprops=props, colclick=click, rows=rows, selnum=selnum)
+    def add_rows(self, names, click, props, rows, selnum=None):
+        self.lstview = LstviewState(colnames=names, colclick=click, colprops=props, rows=rows, selnum=selnum)
 
 class ProcessorBase(ABC):
     @abstractproperty

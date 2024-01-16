@@ -479,6 +479,7 @@ class DirAggProcessor(SubprocessorBase):
         output = ProcessorOutput()
         output.add_rows(
             ["Name", "Path"],
+            None,
             [1, 1],
             rows,
             pinput.lstview.selnum
@@ -500,6 +501,7 @@ class DirAggProcessor(SubprocessorBase):
         output = ProcessorOutput()
         output.add_rows(
             ["Name"],
+            None,
             [1],
             rows,
             pinput.lstview.selnum
@@ -548,6 +550,7 @@ class LaunchProcessor(SubprocessorBase):
         output.add_out(f"Launch items found: {len(rows)}")
         output.add_rows(
             ["Name", "Ext"],
+            None,
             [3, 1],
             rows,
             selnum
@@ -613,13 +616,13 @@ class Processor(ProcessorBase):
         output.add_out(self._render_outtext())
         output.add_rows(
             ["Number", "Title", "Executable", "Alias"],
-            [6, 74, 10, 10],
             [
                 lambda appendcmd: appendcmd(';o default'),
                 lambda appendcmd: appendcmd(';o title'),
                 lambda appendcmd: appendcmd(';o exe'),
                 lambda appendcmd: appendcmd(';o alias'),
             ],
+            [6, 74, 10, 10],
             rows,
             self._winmgr.selected_index,
         )
