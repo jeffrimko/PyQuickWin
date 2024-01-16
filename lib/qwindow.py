@@ -414,7 +414,10 @@ class MainWindow(wx.MiniFrame):
         colnum = event.GetColumn()
         if len(self.colclick) < (colnum + 1):
             return
-        self.colclick[colnum]()
+        colclick = self.colclick[colnum]
+        if colclick:
+            colclick(self.cmdtext.SetValue)
+            print("colclick")
 
     def UpdateOutput(self, complete=False, key=None):
         if not self.IsShown():
