@@ -416,8 +416,7 @@ class MainWindow(wx.MiniFrame):
             return
         colclick = self.colclick[colnum]
         if colclick:
-            colclick(self.cmdtext.SetValue)
-            print("colclick")
+            colclick(self.cmdtext.AppendText)
 
     def UpdateOutput(self, complete=False, key=None):
         if not self.IsShown():
