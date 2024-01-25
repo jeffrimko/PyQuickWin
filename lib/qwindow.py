@@ -40,12 +40,44 @@ class _Default:
         "prMcqAhbAtknJx+3AKRHgGhnv4iApQY+jtSWpOY27BnifNt5uyk9BekAoZNwl21yDBSBi/63"
         "yOMiLAXaf8AuwP9n94vzaTYBsgHeht4lXXmb7yQAAAAASUVORK5CYII=")
 
-class KeyKind(Enum):
+class EventKind(Enum):
+    CMD_CHANGE = auto()
+    HOTKEY_PRESS = auto()
+    COL_LCLICK = auto()
+    ROW_RCLICK = auto()
+
+class HotKeyKind(Enum):
     NEXT = auto()
     PREV = auto()
     UNDO = auto()
     INTO = auto()
     OUTOF = auto()
+
+class _Event:
+    def __init__(self, kind: EventKind):
+        self.kind = kind
+    def is_hotkey(self, kind: HotKeyKind):
+        return self.kind == EventKind.HOTKEY_PRESS and self.hotkey == kind
+
+class CmdChangeEvent(_Event):
+    def __init__(self):
+        super().__init__(EventKind.CMD_CHANGE)
+
+class HotKeyPressEvent(_Event):
+    def __init__(self, hotkey):
+        super().__init__(EventKind.HOTKEY_PRESS)
+        self.hotkey = hotkey
+
+class ColLClickEvent(_Event):
+    def __init__(self, colnum):
+        super().__init__(EventKind.COL_LCLICK)
+        self.colnum = colnum
+
+class RowRClickEvent(_Event):
+    def __init__(self, colnum, rownum):
+        super().__init__(EventKind.ROW_RCLICK)
+        self.colnum = colnum
+        self.rownum = rownum
 
 @dataclass
 class MenuItem:
@@ -87,7 +119,7 @@ class ProcessorInput:
     cmdtext: Optional[CmdtextState] = None
     lstview: Optional[LstviewState] = None
     outtext: Optional[OuttextState] = None
-    key: Optional[KeyKind] = None
+    event: Optional[_Event] = None
     is_complete: bool = False
     was_hidden: bool = True
 
@@ -392,24 +424,24 @@ class MainWindow(wx.MiniFrame):
         row = self.lstview.GetItemCount() // 2
         self.SelectRowNum(row)
 
-    def OnNext(self, event):
-        self.UpdateOutput(key=KeyKind.NEXT)
-
-    def OnPrev(self, event):
-        self.UpdateOutput(key=KeyKind.PREV)
-
-    def OnUndo(self, event):
-        self.UpdateOutput(key=KeyKind.UNDO)
-
-    def OnInto(self, event):
-        self.UpdateOutput(key=KeyKind.INTO)
-
-    def OnOutof(self, event):
-        self.UpdateOutput(key=KeyKind.OUTOF)
-
     def OnClearCmd(self, event):
         self.cmdtext.SetValue('')
         self.cmdtext.SetFocus()
+
+    def OnNext(self, event):
+        self.UpdateOutput(event=HotKeyPressEvent(HotKeyKind.NEXT))
+
+    def OnPrev(self, event):
+        self.UpdateOutput(event=HotKeyPressEvent(HotKeyKind.PREV))
+
+    def OnUndo(self, event):
+        self.UpdateOutput(event=HotKeyPressEvent(HotKeyKind.UNDO))
+
+    def OnInto(self, event):
+        self.UpdateOutput(event=HotKeyPressEvent(HotKeyKind.INTO))
+
+    def OnOutof(self, event):
+        self.UpdateOutput(event=HotKeyPressEvent(HotKeyKind.OUTOF))
 
     def OnRightClick(self, event):
         colnum = event.GetColumn()
@@ -420,18 +452,19 @@ class MainWindow(wx.MiniFrame):
 
     def OnColClick(self, event):
         colnum = event.GetColumn()
-        if len(self.colclick) < (colnum + 1):
-            return
-        appendcmd = self.colclick[colnum]
-        if appendcmd:
-            self.cmdtext.AppendText(appendcmd)
+        self.UpdateOutput(event=ColLClickEvent(colnum))
+        # if len(self.colclick) < (colnum + 1):
+        #     return
+        # appendcmd = self.colclick[colnum]
+        # if appendcmd:
+        #     self.cmdtext.AppendText(appendcmd)
 
-    def UpdateOutput(self, complete=False, key=None):
+    def UpdateOutput(self, complete=False, event=None):
         if not self.IsShown():
             return
 
         self.pinput.is_complete = complete
-        self.pinput.key = key
+        self.pinput.event = event or CmdChangeEvent()
         self.pinput.cmdtext.text = self.cmdtext.GetValue()
         self.pinput.lstview.selnum = self.lstview.GetSelectedRow()
         out = self.app.processor.update(self.pinput)
@@ -549,4 +582,8 @@ def subprocessors(method):
 ##==============================================================#
 
 if __name__ == '__main__':
-    pass
+    e = HotKeyPressEvent(HotKeyKind.INTO)
+    # e = ColLClickEvent(1)
+    # print(e.kind)
+    # print(e.colnum)
+    print(e.is_hotkey(HotKeyKind.INTO))

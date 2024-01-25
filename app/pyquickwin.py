@@ -17,7 +17,7 @@ import yaml
 
 sys.path.append(abspath("../lib", __file__))
 
-from qwindow import App, Config, KeyKind, ProcessorBase, ProcessorOutput, MenuItem, SubprocessorBase, subprocessors
+from qwindow import App, Config, HotKeyKind, ProcessorBase, ProcessorOutput, MenuItem, SubprocessorBase, subprocessors
 from winctrl import WinControl, WinInfo
 
 ##==============================================================#
@@ -43,11 +43,11 @@ def update_histmgr(method):
             fatal(f"Processor {processor} has no HistManager attribute named _histmgr!")
         if pinput.was_hidden or pinput.cmd == processor.prefix:
             histmgr.reset()
-        if pinput.key == KeyKind.PREV:
+        if pinput.event.is_hotkey(HotKeyKind.PREV):
             pout = ProcessorOutput()
             pout.add_cmd(histmgr.get_prev(pinput.cmd))
             return pout
-        elif pinput.key == KeyKind.NEXT:
+        elif pinput.event.is_hotkey(HotKeyKind.NEXT):
             pout = ProcessorOutput()
             pout.add_cmd(histmgr.get_next(pinput.cmd))
             return pout
@@ -449,7 +449,7 @@ class DirAggProcessor(SubprocessorBase):
 
     def update(self, pinput):
         cmdtext = pinput.cmd[1:].lstrip()
-        if pinput.key == KeyKind.OUTOF:
+        if pinput.event.is_hotkey(HotKeyKind.OUTOF):
             self._category = None
         if self._category is None:
             return self._show_available_categories(pinput, cmdtext)
@@ -488,7 +488,7 @@ class DirAggProcessor(SubprocessorBase):
         return output
 
     def _show_available_categories(self, pinput, cmdtext):
-        if pinput.selrow and (pinput.is_complete or pinput.key == KeyKind.INTO):
+        if pinput.selrow and (pinput.is_complete or pinput.event.is_hotkey(HotKeyKind.INTO)):
             self._category = pinput.selrow[0]
             output = ProcessorOutput()
             output.add_cmd(self.prefix)
