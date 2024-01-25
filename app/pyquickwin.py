@@ -616,12 +616,7 @@ class Processor(ProcessorBase):
         output.add_out(self._render_outtext())
         output.add_rows(
             ["Number", "Title", "Executable", "Alias"],
-            [
-                lambda appendcmd: appendcmd(';o default'),
-                lambda appendcmd: appendcmd(';o title'),
-                lambda appendcmd: appendcmd(';o exe'),
-                lambda appendcmd: appendcmd(';o alias'),
-            ],
+            [';o default', ';o title', ';o exe', ';o alias'],
             [6, 74, 10, 10],
             rows,
             self._winmgr.selected_index,

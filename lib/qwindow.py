@@ -73,7 +73,7 @@ class CmdtextState:
 class LstviewState:
     colnames: List[str] = field(default_factory=lambda: [])
     colprops: List[int] = field(default_factory=lambda: [])
-    colclick: Optional[List[Callable]] = None
+    colclick: Optional[List[str]] = None
     rows: List[List[str]] = field(default_factory=lambda: [])
     selnum: Optional[int] = None
     hide: bool = False
@@ -257,6 +257,7 @@ class MainWindow(wx.MiniFrame):
         lstview_prop, outtext_prop = self.app.config.comprops
         self.lstview = dv.DataViewListCtrl(panel)
         self.lstview.Bind(dv.EVT_DATAVIEW_COLUMN_HEADER_CLICK, self.OnColClick)
+        self.lstview.Bind(dv.EVT_DATAVIEW_ITEM_CONTEXT_MENU, self.OnRightClick)
         psizer.Add(self.lstview, proportion=lstview_prop, flag=wx.RIGHT | wx.LEFT | wx.DOWN | wx.EXPAND, border=8)
 
         self.outtext = wx.TextCtrl(panel, style=wx.TE_MULTILINE | wx.TE_READONLY | wx.TE_RICH2)
@@ -410,13 +411,20 @@ class MainWindow(wx.MiniFrame):
         self.cmdtext.SetValue('')
         self.cmdtext.SetFocus()
 
+    def OnRightClick(self, event):
+        colnum = event.GetColumn()
+        print(self.lstview.GetCurrentItem())
+        print(colnum)
+        # print(self.lstview.rows[0])
+        print(self.lstview.GetSelectedRow())
+
     def OnColClick(self, event):
         colnum = event.GetColumn()
         if len(self.colclick) < (colnum + 1):
             return
-        colclick = self.colclick[colnum]
-        if colclick:
-            colclick(self.cmdtext.AppendText)
+        appendcmd = self.colclick[colnum]
+        if appendcmd:
+            self.cmdtext.AppendText(appendcmd)
 
     def UpdateOutput(self, complete=False, key=None):
         if not self.IsShown():
