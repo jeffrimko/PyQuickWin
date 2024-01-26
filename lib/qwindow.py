@@ -56,6 +56,8 @@ class HotKeyKind(Enum):
 class _Event:
     def __init__(self, kind: EventKind):
         self.kind = kind
+    def is_cmdchange(self):
+        return self.kind == EventKind.CMD_CHANGE
     def is_hotkey(self, kind: HotKeyKind):
         return self.kind == EventKind.HOTKEY_PRESS and self.hotkey == kind
 
@@ -105,7 +107,6 @@ class CmdtextState:
 class LstviewState:
     colnames: List[str] = field(default_factory=lambda: [])
     colprops: List[int] = field(default_factory=lambda: [])
-    colclick: Optional[List[str]] = None
     rows: List[List[str]] = field(default_factory=lambda: [])
     selnum: Optional[int] = None
     hide: bool = False
@@ -152,8 +153,8 @@ class ProcessorOutput:
     def hide_rows(self):
         self.lstview = LstviewState(hide=True)
 
-    def add_rows(self, names, click, props, rows, selnum=None):
-        self.lstview = LstviewState(colnames=names, colclick=click, colprops=props, rows=rows, selnum=selnum)
+    def add_rows(self, names, props, rows, selnum=None):
+        self.lstview = LstviewState(colnames=names, colprops=props, rows=rows, selnum=selnum)
 
 class ProcessorBase(ABC):
     @abstractproperty
@@ -270,7 +271,6 @@ class App(wx.App):
 
 class MainWindow(wx.MiniFrame):
     def __init__(self, app):
-        self.colclick = []
         self.size = _WxUtils.CalcSize(0, app.config.winpct)
         super(MainWindow, self).__init__(None, -1, "", size=self.size, style=wx.NO_BORDER | wx.STAY_ON_TOP)
         self.app = app
@@ -445,19 +445,12 @@ class MainWindow(wx.MiniFrame):
 
     def OnRightClick(self, event):
         colnum = event.GetColumn()
-        print(self.lstview.GetCurrentItem())
-        print(colnum)
-        # print(self.lstview.rows[0])
-        print(self.lstview.GetSelectedRow())
+        rownum = self.lstview.GetSelectedRow()
+        self.UpdateOutput(event=RowRClickEvent(colnum, rownum))
 
     def OnColClick(self, event):
         colnum = event.GetColumn()
         self.UpdateOutput(event=ColLClickEvent(colnum))
-        # if len(self.colclick) < (colnum + 1):
-        #     return
-        # appendcmd = self.colclick[colnum]
-        # if appendcmd:
-        #     self.cmdtext.AppendText(appendcmd)
 
     def UpdateOutput(self, complete=False, event=None):
         if not self.IsShown():
@@ -471,11 +464,6 @@ class MainWindow(wx.MiniFrame):
 
         if out is None:
             return
-
-        if out.lstview and out.lstview.colclick and len(out.lstview.colclick) > 0:
-            self.colclick = out.lstview.colclick
-        else:
-            self.colclick = []
 
         self.pinput.was_hidden = False
         if out.hide:
@@ -582,8 +570,4 @@ def subprocessors(method):
 ##==============================================================#
 
 if __name__ == '__main__':
-    e = HotKeyPressEvent(HotKeyKind.INTO)
-    # e = ColLClickEvent(1)
-    # print(e.kind)
-    # print(e.colnum)
-    print(e.is_hotkey(HotKeyKind.INTO))
+    pass

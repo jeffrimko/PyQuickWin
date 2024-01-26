@@ -17,7 +17,18 @@ import yaml
 
 sys.path.append(abspath("../lib", __file__))
 
-from qwindow import App, Config, HotKeyKind, ProcessorBase, ProcessorOutput, MenuItem, SubprocessorBase, subprocessors
+from qwindow import (
+    App,
+    Config,
+    EventKind,
+    HotKeyKind,
+    MenuItem,
+    ProcessorBase,
+    ProcessorInput,
+    ProcessorOutput,
+    SubprocessorBase,
+    subprocessors,
+)
 from winctrl import WinControl, WinInfo
 
 ##==============================================================#
@@ -479,7 +490,6 @@ class DirAggProcessor(SubprocessorBase):
         output = ProcessorOutput()
         output.add_rows(
             ["Name", "Path"],
-            None,
             [1, 1],
             rows,
             pinput.lstview.selnum
@@ -501,7 +511,6 @@ class DirAggProcessor(SubprocessorBase):
         output = ProcessorOutput()
         output.add_rows(
             ["Name"],
-            None,
             [1],
             rows,
             pinput.lstview.selnum
@@ -550,7 +559,6 @@ class LaunchProcessor(SubprocessorBase):
         output.add_out(f"Launch items found: {len(rows)}")
         output.add_rows(
             ["Name", "Ext"],
-            None,
             [3, 1],
             rows,
             selnum
@@ -596,10 +604,32 @@ class Processor(ProcessorBase):
         cmd_on_complete = self._handle_incomplete(cmds)
         if pinput.is_complete:
             return self._handle_complete(cmd_on_complete)
-        return self._render_rows()
+        poutput = self._render_rows()
+        poutput = self._handle_colclick(pinput, poutput)
+        poutput = self._handle_rowclick(pinput, poutput)
+        return poutput
 
     def reload_exclusions(self):
         self._winmgr.reload_exclusions()
+
+    def _handle_rowclick(self, pinput, poutput):
+        if pinput.event.kind == EventKind.ROW_RCLICK:
+            if pinput.event.colnum == 2:
+                exe = pinput.lstview.rows[pinput.event.rownum][2]
+                poutput.add_cmd(pinput.cmd + f";e {exe}")
+        return poutput
+
+    def _handle_colclick(self, pinput, poutput):
+        if pinput.event.kind == EventKind.COL_LCLICK:
+            if pinput.event.colnum == 0:
+                poutput.add_cmd(pinput.cmd + ";o default")
+            if pinput.event.colnum == 1:
+                poutput.add_cmd(pinput.cmd + ";o title")
+            if pinput.event.colnum == 2:
+                poutput.add_cmd(pinput.cmd + ";o exe")
+            if pinput.event.colnum == 3:
+                poutput.add_cmd(pinput.cmd + ";o alias")
+        return poutput
 
     def _render_rows(self):
         wins = self._winmgr.wins
@@ -616,7 +646,6 @@ class Processor(ProcessorBase):
         output.add_out(self._render_outtext())
         output.add_rows(
             ["Number", "Title", "Executable", "Alias"],
-            [';o default', ';o title', ';o exe', ';o alias'],
             [6, 74, 10, 10],
             rows,
             self._winmgr.selected_index,
