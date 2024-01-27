@@ -53,7 +53,7 @@ class HotKeyKind(Enum):
     INTO = auto()
     OUTOF = auto()
 
-class _Event:
+class BaseEvent:
     def __init__(self, kind: EventKind):
         self.kind = kind
     def is_cmdchange(self):
@@ -61,21 +61,21 @@ class _Event:
     def is_hotkey(self, kind: HotKeyKind):
         return self.kind == EventKind.HOTKEY_PRESS and self.hotkey == kind
 
-class CmdChangeEvent(_Event):
+class CmdChangeEvent(BaseEvent):
     def __init__(self):
         super().__init__(EventKind.CMD_CHANGE)
 
-class HotKeyPressEvent(_Event):
+class HotKeyPressEvent(BaseEvent):
     def __init__(self, hotkey):
         super().__init__(EventKind.HOTKEY_PRESS)
         self.hotkey = hotkey
 
-class ColLClickEvent(_Event):
+class ColLClickEvent(BaseEvent):
     def __init__(self, colnum):
         super().__init__(EventKind.COL_LCLICK)
         self.colnum = colnum
 
-class RowRClickEvent(_Event):
+class RowRClickEvent(BaseEvent):
     def __init__(self, colnum, rownum):
         super().__init__(EventKind.ROW_RCLICK)
         self.colnum = colnum
@@ -120,7 +120,7 @@ class ProcessorInput:
     cmdtext: Optional[CmdtextState] = None
     lstview: Optional[LstviewState] = None
     outtext: Optional[OuttextState] = None
-    event: Optional[_Event] = None
+    event: Optional[BaseEvent] = None
     is_complete: bool = False
     was_hidden: bool = True
 
