@@ -17,7 +17,18 @@ import yaml
 
 sys.path.append(abspath("../lib", __file__))
 
-from qwindow import App, Config, KeyKind, ProcessorBase, ProcessorOutput, MenuItem, SubprocessorBase, subprocessors
+from qwindow import (
+    App,
+    Config,
+    EventKind,
+    HotKeyKind,
+    MenuItem,
+    ProcessorBase,
+    ProcessorInput,
+    ProcessorOutput,
+    SubprocessorBase,
+    subprocessors,
+)
 from winctrl import WinControl, WinInfo
 
 ##==============================================================#
@@ -43,11 +54,11 @@ def update_histmgr(method):
             fatal(f"Processor {processor} has no HistManager attribute named _histmgr!")
         if pinput.was_hidden or pinput.cmd == processor.prefix:
             histmgr.reset()
-        if pinput.key == KeyKind.PREV:
+        if pinput.event.is_hotkey(HotKeyKind.PREV):
             pout = ProcessorOutput()
             pout.add_cmd(histmgr.get_prev(pinput.cmd))
             return pout
-        elif pinput.key == KeyKind.NEXT:
+        elif pinput.event.is_hotkey(HotKeyKind.NEXT):
             pout = ProcessorOutput()
             pout.add_cmd(histmgr.get_next(pinput.cmd))
             return pout
@@ -449,7 +460,7 @@ class DirAggProcessor(SubprocessorBase):
 
     def update(self, pinput):
         cmdtext = pinput.cmd[1:].lstrip()
-        if pinput.key == KeyKind.OUTOF:
+        if pinput.event.is_hotkey(HotKeyKind.OUTOF):
             self._category = None
         if self._category is None:
             return self._show_available_categories(pinput, cmdtext)
@@ -487,7 +498,7 @@ class DirAggProcessor(SubprocessorBase):
         return output
 
     def _show_available_categories(self, pinput, cmdtext):
-        if pinput.selrow and (pinput.is_complete or pinput.key == KeyKind.INTO):
+        if pinput.selrow and (pinput.is_complete or pinput.event.is_hotkey(HotKeyKind.INTO)):
             self._category = pinput.selrow[0]
             output = ProcessorOutput()
             output.add_cmd(self.prefix)
@@ -548,7 +559,7 @@ class LaunchProcessor(SubprocessorBase):
         output.add_out(f"Launch items found: {len(rows)}")
         output.add_rows(
             ["Name", "Ext"],
-            [3,1],
+            [3, 1],
             rows,
             selnum
         )
@@ -593,10 +604,32 @@ class Processor(ProcessorBase):
         cmd_on_complete = self._handle_incomplete(cmds)
         if pinput.is_complete:
             return self._handle_complete(cmd_on_complete)
-        return self._render_rows()
+        poutput = self._render_rows()
+        poutput = self._handle_colclick(pinput, poutput)
+        poutput = self._handle_rowclick(pinput, poutput)
+        return poutput
 
     def reload_exclusions(self):
         self._winmgr.reload_exclusions()
+
+    def _handle_rowclick(self, pinput, poutput):
+        if pinput.event.kind == EventKind.ROW_RCLICK:
+            if pinput.event.colnum == 2:
+                exe = pinput.lstview.rows[pinput.event.rownum][2]
+                poutput.add_cmd(pinput.cmd + f";e {exe}")
+        return poutput
+
+    def _handle_colclick(self, pinput, poutput):
+        if pinput.event.kind == EventKind.COL_LCLICK:
+            if pinput.event.colnum == 0:
+                poutput.add_cmd(pinput.cmd + ";o default")
+            if pinput.event.colnum == 1:
+                poutput.add_cmd(pinput.cmd + ";o title")
+            if pinput.event.colnum == 2:
+                poutput.add_cmd(pinput.cmd + ";o exe")
+            if pinput.event.colnum == 3:
+                poutput.add_cmd(pinput.cmd + ";o alias")
+        return poutput
 
     def _render_rows(self):
         wins = self._winmgr.wins
