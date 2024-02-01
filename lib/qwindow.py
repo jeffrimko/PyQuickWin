@@ -49,9 +49,9 @@ class EventKind(Enum):
 class HotKeyKind(Enum):
     NEXT = auto()
     PREV = auto()
-    UNDO = auto()
     INTO = auto()
     OUTOF = auto()
+    CLEAR = auto()
 
 class BaseEvent:
     def __init__(self, kind: EventKind):
@@ -282,9 +282,28 @@ class MainWindow(wx.MiniFrame):
 
         title = wx.StaticText(panel, -1, self.app.config.name)
         psizer.Add(title, flag=wx.TOP | wx.ALIGN_CENTER, border=8)
+
+        hsizer = wx.BoxSizer(wx.HORIZONTAL)
         self.cmdtext = wx.TextCtrl(panel, style=wx.TE_RICH2)
         self.cmdtext.SetFocus()
-        psizer.Add(self.cmdtext, flag=wx.ALL | wx.EXPAND, border=8)
+        hsizer.Add(self.cmdtext, 1, flag=wx.ALL | wx.EXPAND, border=0)
+
+        cbtn = wx.Button(panel, wx.ID_ANY, style=wx.BU_EXACTFIT)
+        cbtn.SetLabel("Del")
+        hsizer.Add(cbtn, flag=wx.ALL)
+        nbtn = wx.Button(panel, wx.ID_ANY, style=wx.BU_EXACTFIT)
+        nbtn.SetLabel("Nxt")
+        hsizer.Add(nbtn, flag=wx.ALL)
+        pbtn = wx.Button(panel, wx.ID_ANY, style=wx.BU_EXACTFIT)
+        pbtn.SetLabel("Prv")
+        hsizer.Add(pbtn, flag=wx.ALL)
+        ibtn = wx.Button(panel, wx.ID_ANY, style=wx.BU_EXACTFIT)
+        ibtn.SetLabel(" In ")
+        hsizer.Add(ibtn, flag=wx.ALL)
+        obtn = wx.Button(panel, wx.ID_ANY, style=wx.BU_EXACTFIT)
+        obtn.SetLabel("Out")
+        hsizer.Add(obtn, flag=wx.ALL)
+        psizer.Add(hsizer, flag=wx.ALL | wx.EXPAND, border=8)
 
         lstview_prop, outtext_prop = self.app.config.comprops
         self.lstview = dv.DataViewListCtrl(panel)
@@ -314,7 +333,6 @@ class MainWindow(wx.MiniFrame):
             KeyBinding("CTRL", "L", self.MoveViewBottom),
             KeyBinding("CTRL", "P", self.OnPrev),
             KeyBinding("CTRL", "N", self.OnNext),
-            KeyBinding("CTRL", "U", self.OnUndo),
             KeyBinding("CTRL", "I", self.OnInto),
             KeyBinding("CTRL", "O", self.OnOutof),
             KeyBinding("CTRL", "D", self.OnClearCmd),
@@ -433,9 +451,6 @@ class MainWindow(wx.MiniFrame):
 
     def OnPrev(self, event):
         self.UpdateOutput(event=HotKeyPressEvent(HotKeyKind.PREV))
-
-    def OnUndo(self, event):
-        self.UpdateOutput(event=HotKeyPressEvent(HotKeyKind.UNDO))
 
     def OnInto(self, event):
         self.UpdateOutput(event=HotKeyPressEvent(HotKeyKind.INTO))
