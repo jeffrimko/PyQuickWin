@@ -617,6 +617,8 @@ class Processor(ProcessorBase):
             if pinput.event.colnum == 2:
                 exe = pinput.lstview.rows[pinput.event.rownum][2]
                 poutput.add_cmd(pinput.cmd + f";e {exe}")
+            elif pinput.event.colnum == 3:
+                poutput.add_cmd(pinput.cmd + ";g")
         return poutput
 
     def _handle_colclick(self, pinput, poutput):
