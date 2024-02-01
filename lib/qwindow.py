@@ -51,7 +51,7 @@ class HotKeyKind(Enum):
     PREV = auto()
     INTO = auto()
     OUTOF = auto()
-    CLEAR = auto()
+    DEL = auto()
 
 class BaseEvent:
     def __init__(self, kind: EventKind):
@@ -288,21 +288,26 @@ class MainWindow(wx.MiniFrame):
         self.cmdtext.SetFocus()
         hsizer.Add(self.cmdtext, 1, flag=wx.ALL | wx.EXPAND, border=0)
 
-        cbtn = wx.Button(panel, wx.ID_ANY, style=wx.BU_EXACTFIT)
-        cbtn.SetLabel("Del")
-        hsizer.Add(cbtn, flag=wx.ALL)
-        nbtn = wx.Button(panel, wx.ID_ANY, style=wx.BU_EXACTFIT)
-        nbtn.SetLabel("Nxt")
-        hsizer.Add(nbtn, flag=wx.ALL)
-        pbtn = wx.Button(panel, wx.ID_ANY, style=wx.BU_EXACTFIT)
-        pbtn.SetLabel("Prv")
-        hsizer.Add(pbtn, flag=wx.ALL)
-        ibtn = wx.Button(panel, wx.ID_ANY, style=wx.BU_EXACTFIT)
-        ibtn.SetLabel(" In ")
-        hsizer.Add(ibtn, flag=wx.ALL)
-        obtn = wx.Button(panel, wx.ID_ANY, style=wx.BU_EXACTFIT)
-        obtn.SetLabel("Out")
-        hsizer.Add(obtn, flag=wx.ALL)
+        self.del_btn = wx.Button(panel, wx.ID_ANY, style=wx.BU_EXACTFIT)
+        self.del_btn.SetLabel("Del")
+        self.del_btn.Bind(wx.EVT_BUTTON, self.OnDel)
+        hsizer.Add(self.del_btn, flag=wx.ALL)
+        self.nxt_btn = wx.Button(panel, wx.ID_ANY, style=wx.BU_EXACTFIT)
+        self.nxt_btn.SetLabel("Nxt")
+        self.nxt_btn.Bind(wx.EVT_BUTTON, self.OnNext)
+        hsizer.Add(self.nxt_btn, flag=wx.ALL)
+        self.prv_btn = wx.Button(panel, wx.ID_ANY, style=wx.BU_EXACTFIT)
+        self.prv_btn.SetLabel("Prv")
+        self.prv_btn.Bind(wx.EVT_BUTTON, self.OnPrev)
+        hsizer.Add(self.prv_btn, flag=wx.ALL)
+        self.in_btn = wx.Button(panel, wx.ID_ANY, style=wx.BU_EXACTFIT)
+        self.in_btn.SetLabel(" In ")
+        self.in_btn.Bind(wx.EVT_BUTTON, self.OnInto)
+        hsizer.Add(self.in_btn, flag=wx.ALL)
+        self.out_btn = wx.Button(panel, wx.ID_ANY, style=wx.BU_EXACTFIT)
+        self.out_btn.SetLabel("Out")
+        self.out_btn.Bind(wx.EVT_BUTTON, self.OnOutof)
+        hsizer.Add(self.out_btn, flag=wx.ALL)
         psizer.Add(hsizer, flag=wx.ALL | wx.EXPAND, border=8)
 
         lstview_prop, outtext_prop = self.app.config.comprops
@@ -335,7 +340,7 @@ class MainWindow(wx.MiniFrame):
             KeyBinding("CTRL", "N", self.OnNext),
             KeyBinding("CTRL", "I", self.OnInto),
             KeyBinding("CTRL", "O", self.OnOutof),
-            KeyBinding("CTRL", "D", self.OnClearCmd),
+            KeyBinding("CTRL", "D", self.OnDel),
         ]
 
         accels = []
@@ -442,7 +447,7 @@ class MainWindow(wx.MiniFrame):
         row = self.lstview.GetItemCount() // 2
         self.SelectRowNum(row)
 
-    def OnClearCmd(self, event):
+    def OnDel(self, event):
         self.cmdtext.SetValue('')
         self.cmdtext.SetFocus()
 
