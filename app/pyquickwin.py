@@ -10,7 +10,7 @@ import csv
 import os
 import sys
 
-from auxly.filesys import Dir, File, abspath, walkfiles, walkdirs
+from auxly.filesys import Dir, File, Path, abspath, walkall, walkfiles, walkdirs
 import auxly
 import ujson
 import yaml
@@ -38,6 +38,7 @@ from winctrl import WinControl, WinInfo
 LAUNCH_PREFIX = "."
 MATH_PREFIX = "="
 DIRAGG_PREFIX = ">"
+DIRLIST_PREFIX = "/"
 
 ##==============================================================#
 ## SECTION: Special Function Definitions                        #
@@ -404,6 +405,58 @@ class WinManager:
             alias[WinInfo(**i[0])] = i[1]
         return alias
 
+class DirListProcessor(SubprocessorBase):
+
+    @property
+    def prefix(self):
+        return DIRLIST_PREFIX
+
+    @property
+    def help(self) -> str:
+        return "DirList processor prefix: " + self.prefix
+
+    def use_processor(self, pinput):
+        if len(pinput.cmd) == 0:
+            return False
+        return pinput.cmd[0] == self.prefix
+
+    def update(self, pinput):
+        if pinput.is_complete:
+            path = Path(pinput.selrow[0])
+            if path.isfile():
+                auxly.open(path)
+                return ProcessorOutput(hide=True)
+            elif path.isdir():
+                return self._render_rows(pinput, path)
+        cmdtext = pinput.cmd.split(self.prefix, maxsplit=1)[1]
+        firstwin = WinControl.list()[0]
+        if firstwin.exe.lower() != "explorer.exe":
+            output = ProcessorOutput()
+            output.hide_rows()
+            output.add_txt("The first/top window must be File Explorer.")
+            return output
+        windir = Dir(firstwin.title)
+        if not windir.isdir():
+            output = ProcessorOutput()
+            output.hide_rows()
+            output.add_txt("The File Explorer title must show the absolute path, check Explorer settings.")
+            return output
+        return self._render_rows(pinput, windir)
+
+    def _render_rows(self, pinput, path):
+        rows = []
+        for item in walkall(path):
+            rows.append([item.path, "file" if item.isfile() else "dir"])
+        output = ProcessorOutput()
+        output.add_rows(
+            ["Name", "Type"],
+            [5, 1],
+            rows,
+            pinput.lstview.selnum
+        )
+        output.add_txt(f"Listing dir content: {path}")
+        return output
+
 class MathProcessor(SubprocessorBase):
     """Processor to perform simple math calculations."""
 
@@ -421,14 +474,14 @@ class MathProcessor(SubprocessorBase):
         return pinput.cmd[0] == self.prefix
 
     def update(self, pinput):
-        cmdtext = pinput.cmd.split("=", maxsplit=1)[1]
+        cmdtext = pinput.cmd.split(self.prefix, maxsplit=1)[1]
         output = ProcessorOutput()
         output.hide_rows()
         try:
             result = eval(cmdtext)
-            output.add_out(f"Math result: {result}")
+            output.add_txt(f"Math result: {result}")
         except Exception:
-            output.add_out(f"Math result:")
+            output.add_txt(f"Math result:")
         return output
 
 class DirAggProcessor(SubprocessorBase):
@@ -494,7 +547,7 @@ class DirAggProcessor(SubprocessorBase):
             rows,
             pinput.lstview.selnum
         )
-        output.add_out("\n".join(outtext))
+        output.add_txt("\n".join(outtext))
         return output
 
     def _show_available_categories(self, pinput, cmdtext):
@@ -515,7 +568,7 @@ class DirAggProcessor(SubprocessorBase):
             rows,
             pinput.lstview.selnum
         )
-        output.add_out("Select a DirAgg category")
+        output.add_txt("Select a DirAgg category")
         return output
 
 class LaunchProcessor(SubprocessorBase):
@@ -547,7 +600,6 @@ class LaunchProcessor(SubprocessorBase):
             auxly.open(selpath)
             return ProcessorOutput(hide=True)
         cmdtext = pinput.cmd[1:].lstrip()
-        output = ProcessorOutput()
         rows = []
         for f in walkfiles(self._path):
             if not StrCompare.choice(cmdtext, f.name):
@@ -556,7 +608,8 @@ class LaunchProcessor(SubprocessorBase):
         selnum = self._histmgr.match_to_row(pinput.cmd.strip(), [r[0] for r in rows])
         if selnum is None:
             selnum = pinput.lstview.selnum
-        output.add_out(f"Launch items found: {len(rows)}")
+        output = ProcessorOutput()
+        output.add_txt(f"Launch items found: {len(rows)}")
         output.add_rows(
             ["Name", "Ext"],
             [3, 1],
@@ -645,7 +698,7 @@ class Processor(ProcessorBase):
                 self._winmgr.get_alias(win)
             ])
         output = ProcessorOutput()
-        output.add_out(self._render_outtext())
+        output.add_txt(self._render_outtext())
         output.add_rows(
             ["Number", "Title", "Executable", "Alias"],
             [6, 74, 10, 10],
@@ -867,7 +920,7 @@ def start_app():
         fatal("Config file must contain a 'output_dir' key!")
 
     menuitems = []
-    subprocessors = [MathProcessor()]
+    subprocessors = [MathProcessor(), DirListProcessor()]
     processor_cfg = get_processor_config(main_cfg, 'diragg')
     if processor_cfg:
         diragg = DirAggProcessor(processor_cfg)
