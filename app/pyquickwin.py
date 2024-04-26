@@ -407,6 +407,9 @@ class WinManager:
 
 class DirListProcessor(SubprocessorBase):
 
+    def __init__(self):
+        self.currdir = None
+
     @property
     def prefix(self):
         return DIRLIST_PREFIX
@@ -420,15 +423,24 @@ class DirListProcessor(SubprocessorBase):
             return False
         return pinput.cmd[0] == self.prefix
 
+    def _get_path(self, row):
+        itemname = row[0]
+        if row[1] == "dir":
+            itemname = itemname[1:]  # Remove the added slash prefix.
+            return Path(self.currdir, itemname)
+        return Path(self.currdir, itemname)
+
     def update(self, pinput):
+        print(pinput.was_hidden)
         if pinput.is_complete:
-            path = Path(pinput.selrow[0])
+            path = self._get_path(pinput.selrow)
             if path.isfile():
                 auxly.open(path)
                 return ProcessorOutput(hide=True)
             elif path.isdir():
-                return self._render_rows(pinput, path)
-        cmdtext = pinput.cmd.split(self.prefix, maxsplit=1)[1]
+                self.currdir = path
+        if self.currdir:
+            return self._render_rows(pinput)
         firstwin = WinControl.list()[0]
         if firstwin.exe.lower() != "explorer.exe":
             output = ProcessorOutput()
@@ -441,20 +453,29 @@ class DirListProcessor(SubprocessorBase):
             output.hide_rows()
             output.add_txt("The File Explorer title must show the absolute path, check Explorer settings.")
             return output
-        return self._render_rows(pinput, windir)
+        self.currdir = windir
+        return self._render_rows(pinput)
 
-    def _render_rows(self, pinput, path):
+    def _render_rows(self, pinput):
+        cmdtext = pinput.cmd.split(self.prefix, maxsplit=1)[1]
         rows = []
-        for item in walkall(path):
-            rows.append([item.path, "file" if item.isfile() else "dir"])
+        for item in walkall(self.currdir):
+            if StrCompare.choice(cmdtext, item.name):
+                rows.append([
+                    f"/{item.name}" if item.isdir() else item.name,
+                    "file" if item.isfile() else "dir" ])
         output = ProcessorOutput()
+        selnum = pinput.lstview.selnum
+        if pinput.is_complete:
+            output.add_cmd(self.prefix)
+            selnum = 0
         output.add_rows(
             ["Name", "Type"],
             [5, 1],
             rows,
-            pinput.lstview.selnum
+            selnum
         )
-        output.add_txt(f"Listing dir content: {path}")
+        output.add_txt(f"Listing dir content: {self.currdir}")
         return output
 
 class MathProcessor(SubprocessorBase):

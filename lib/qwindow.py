@@ -147,7 +147,7 @@ class ProcessorOutput:
     def add_cmd(self, text: str):
         self.cmdtext = CmdtextState(text=text)
 
-    def add_out(self, text: str):
+    def add_txt(self, text: str):
         self.outtext = OuttextState(text=text)
 
     def hide_rows(self):
