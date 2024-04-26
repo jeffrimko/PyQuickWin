@@ -434,15 +434,20 @@ class DirListProcessor(SubprocessorBase):
         return Path(self.currdir, itemname)
 
     def update(self, pinput):
-        if pinput.is_complete:
+        reset_cmd = False
+        if pinput.is_complete or pinput.event.is_hotkey(HotKeyKind.INTO):
             path = self._get_path(pinput.selrow)
             if path.isfile():
                 auxly.open(path)
                 return ProcessorOutput(hide=True)
             elif path.isdir():
                 self.currdir = path
+                reset_cmd = True
         if self.currdir:
-            return self._render_rows(pinput)
+            if pinput.event.is_hotkey(HotKeyKind.OUTOF):
+                self.currdir = self.currdir.parent
+                reset_cmd = True
+            return self._render_rows(pinput, reset_cmd)
         firstwin = WinControl.list()[0]
         if firstwin.exe.lower() != "explorer.exe":
             output = ProcessorOutput()
@@ -458,7 +463,7 @@ class DirListProcessor(SubprocessorBase):
         self.currdir = windir
         return self._render_rows(pinput)
 
-    def _render_rows(self, pinput):
+    def _render_rows(self, pinput, reset_cmd=False):
         cmdtext = pinput.cmd.split(self.prefix, maxsplit=1)[1]
         rows = []
         for item in walkall(self.currdir):
@@ -468,7 +473,7 @@ class DirListProcessor(SubprocessorBase):
                     "file" if item.isfile() else "dir" ])
         output = ProcessorOutput()
         selnum = pinput.lstview.selnum
-        if pinput.is_complete:
+        if reset_cmd:
             output.add_cmd(self.prefix)
             selnum = 0
         output.add_rows(
