@@ -418,6 +418,9 @@ class DirListProcessor(SubprocessorBase):
     def help(self) -> str:
         return "DirList processor prefix: " + self.prefix
 
+    def on_hide(self):
+        self.currdir = None
+
     def use_processor(self, pinput):
         if len(pinput.cmd) == 0:
             return False
@@ -431,7 +434,6 @@ class DirListProcessor(SubprocessorBase):
         return Path(self.currdir, itemname)
 
     def update(self, pinput):
-        print(pinput.was_hidden)
         if pinput.is_complete:
             path = self._get_path(pinput.selrow)
             if path.isfile():

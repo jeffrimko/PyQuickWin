@@ -162,6 +162,8 @@ class ProcessorBase(ABC):
         pass
     def update(self, pinput: ProcessorInput) -> Optional[ProcessorOutput]:
         pass
+    def on_hide(self):
+        pass
 
 class SubprocessorBase(ProcessorBase):
     def use_processor(self, pinput: ProcessorInput) -> bool:
@@ -391,6 +393,10 @@ class MainWindow(wx.MiniFrame):
         self.Hide()
         self.cmdtext.SetValue("")
         self.pinput.was_hidden = True
+        self.app.processor.on_hide()
+        if hasattr(self.app.processor, "_subprocessors"):
+            for sp in self.app.processor._subprocessors:
+                sp.on_hide()
 
     def DoShow(self):
         self.Show()
