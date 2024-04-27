@@ -42,6 +42,8 @@ class _Default:
 
 class EventKind(Enum):
     CMD_CHANGE = auto()
+    MOVE_UP = auto()
+    MOVE_DOWN = auto()
     HOTKEY_PRESS = auto()
     COL_LCLICK = auto()
     ROW_RCLICK = auto()
@@ -64,6 +66,14 @@ class BaseEvent:
 class CmdChangeEvent(BaseEvent):
     def __init__(self):
         super().__init__(EventKind.CMD_CHANGE)
+
+class MoveUpEvent(BaseEvent):
+    def __init__(self):
+        super().__init__(EventKind.MOVE_UP)
+
+class MoveDownEvent(BaseEvent):
+    def __init__(self):
+        super().__init__(EventKind.MOVE_DOWN)
 
 class HotKeyPressEvent(BaseEvent):
     def __init__(self, hotkey):
@@ -435,6 +445,7 @@ class MainWindow(wx.MiniFrame):
         if row < 0:
             row = self.lstview.GetItemCount() - 1
         self.SelectRowNum(row)
+        self.UpdateOutput(event=MoveUpEvent())
 
     def MoveViewDown(self, event):
         row = self.lstview.GetSelectedRow()
@@ -442,6 +453,7 @@ class MainWindow(wx.MiniFrame):
         if row >= self.lstview.GetItemCount():
             row = 0
         self.SelectRowNum(row)
+        self.UpdateOutput(event=MoveDownEvent())
 
     def MoveViewTop(self, event):
         self.SelectRowNum(0)

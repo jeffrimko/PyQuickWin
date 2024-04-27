@@ -409,6 +409,7 @@ class DirListProcessor(SubprocessorBase):
 
     def __init__(self):
         self.currdir = None
+        self.active = False
 
     @property
     def prefix(self):
@@ -420,11 +421,16 @@ class DirListProcessor(SubprocessorBase):
 
     def on_hide(self):
         self.currdir = None
+        self.active = False
 
     def use_processor(self, pinput):
         if len(pinput.cmd) == 0:
             return False
-        return pinput.cmd[0] == self.prefix
+        use = pinput.cmd[0] == self.prefix
+        if use and not self.active:
+            pinput.lstview.selnum = 0
+            self.active = True
+        return use
 
     def _get_path(self, row):
         itemname = row[0]
@@ -482,7 +488,7 @@ class DirListProcessor(SubprocessorBase):
             rows,
             selnum
         )
-        output.add_txt(f"Listing dir content: {self.currdir}")
+        output.add_txt(f"Listing dir content: {self.currdir}\nCurrent selected: {self._get_path(rows[selnum])}")
         return output
 
 class MathProcessor(SubprocessorBase):
@@ -623,28 +629,32 @@ class LaunchProcessor(SubprocessorBase):
     @update_histmgr
     def update(self, pinput):
         if pinput.is_complete and pinput.selrow:
-            stem,ext = pinput.selrow
-            selpath = File(self._path, stem + ext)
-            auxly.open(selpath)
-            return ProcessorOutput(hide=True)
-        cmdtext = pinput.cmd[1:].lstrip()
-        rows = []
-        for f in walkfiles(self._path):
-            if not StrCompare.choice(cmdtext, f.name):
-                continue
-            rows.append([f.stem, f.ext])
-        selnum = self._histmgr.match_to_row(pinput.cmd.strip(), [r[0] for r in rows])
-        if selnum is None:
-            selnum = pinput.lstview.selnum
-        output = ProcessorOutput()
-        output.add_txt(f"Launch items found: {len(rows)}")
-        output.add_rows(
-            ["Name", "Ext"],
-            [3, 1],
-            rows,
-            selnum
-        )
-        return output
+            return self._open_selected(pinput)
+        if pinput.event.kind == EventKind.CMD_CHANGE:
+            cmdtext = pinput.cmd[1:].lstrip()
+            rows = []
+            for f in walkfiles(self._path):
+                if not StrCompare.choice(cmdtext, f.name):
+                    continue
+                rows.append([f.stem, f.ext])
+            selnum = self._histmgr.match_to_row(pinput.cmd.strip(), [r[0] for r in rows])
+            if selnum is None:
+                selnum = pinput.lstview.selnum
+            output = ProcessorOutput()
+            output.add_txt(f"Launch items found: {len(rows)}")
+            output.add_rows(
+                ["Name", "Ext"],
+                [3, 1],
+                rows,
+                selnum
+            )
+            return output
+
+    def _open_selected(self, pinput):
+        stem,ext = pinput.selrow
+        selpath = File(self._path, stem + ext)
+        auxly.open(selpath)
+        return ProcessorOutput(hide=True)
 
 class Processor(ProcessorBase):
     """The main QuickWin processor. Provides a list of OS windows and allows
