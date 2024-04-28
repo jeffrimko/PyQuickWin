@@ -409,7 +409,6 @@ class DirListProcessor(SubprocessorBase):
 
     def __init__(self):
         self.currdir = None
-        self.active = False
 
     @property
     def prefix(self):
@@ -419,18 +418,16 @@ class DirListProcessor(SubprocessorBase):
     def help(self) -> str:
         return "DirList processor prefix: " + self.prefix
 
+    def on_activate(self, pinput):
+        self._load_initial_dir(pinput)
+
     def on_hide(self):
         self.currdir = None
-        self.active = False
 
     def use_processor(self, pinput):
         if len(pinput.cmd) == 0:
             return False
-        use = pinput.cmd[0] == self.prefix
-        if use and not self.active:
-            pinput.lstview.selnum = 0
-            self.active = True
-        return use
+        return pinput.cmd[0] == self.prefix
 
     def _get_path(self, row):
         itemname = row[0]
@@ -441,33 +438,38 @@ class DirListProcessor(SubprocessorBase):
 
     def update(self, pinput):
         reset_cmd = False
-        if pinput.is_complete or pinput.event.is_hotkey(HotKeyKind.INTO):
-            path = self._get_path(pinput.selrow)
-            if path.isfile():
-                auxly.open(path)
-                return ProcessorOutput(hide=True)
-            elif path.isdir():
+        path = self._get_path(pinput.selrow)
+        if pinput.is_complete:
+            auxly.open(path)
+            return ProcessorOutput(hide=True)
+        elif pinput.event.is_hotkey(HotKeyKind.INTO):
+            if path.isdir():
                 self.currdir = path
                 reset_cmd = True
-        if self.currdir:
-            if pinput.event.is_hotkey(HotKeyKind.OUTOF):
-                self.currdir = self.currdir.parent
-                reset_cmd = True
-            return self._render_rows(pinput, reset_cmd)
-        firstwin = WinControl.list()[0]
-        if firstwin.exe.lower() != "explorer.exe":
-            output = ProcessorOutput()
-            output.hide_rows()
-            output.add_txt("The first/top window must be File Explorer.")
-            return output
-        windir = Dir(firstwin.title)
-        if not windir.isdir():
-            output = ProcessorOutput()
-            output.hide_rows()
-            output.add_txt("The File Explorer title must show the absolute path, check Explorer settings.")
-            return output
-        self.currdir = windir
-        return self._render_rows(pinput)
+        elif pinput.event.is_hotkey(HotKeyKind.OUTOF):
+            self.currdir = self.currdir.parent
+            reset_cmd = True
+        return self._render_rows(pinput, reset_cmd)
+
+    @staticmethod
+    def _remove_git_branch_suffix(dirpath):
+        if not dirpath.endswith("]"):
+            return dirpath
+        square_bracket_start_index = dirpath.rfind("[")
+        if square_bracket_start_index == -1:
+            return dirpath
+        return dirpath[:square_bracket_start_index].strip()
+
+    def _load_initial_dir(self, pinput):
+        _, title, exe, _ = pinput.selrow
+        if exe.lower() != "explorer.exe":
+            self.currdir = self.currdir or "C:\\"
+            return
+        initial_dir = Dir(DirListProcessor._remove_git_branch_suffix(title))
+        if not initial_dir.isdir():
+            self.currdir = self.currdir or "C:\\"
+            return
+        self.currdir = initial_dir
 
     def _render_rows(self, pinput, reset_cmd=False):
         cmdtext = pinput.cmd.split(self.prefix, maxsplit=1)[1]
@@ -660,6 +662,7 @@ class Processor(ProcessorBase):
     """The main QuickWin processor. Provides a list of OS windows and allows
     the user to select one to switch to (similar to ALT+TAB)."""
     def __init__(self, cfg, subprocessors=None):
+        super(Processor, self).__init__()
         self._outtext: List[str] = []
         alias_path = format_outpath(cfg, "quickwin-alias")
         self._winmgr = WinManager(alias_path, cfg.get('exclude_file'))
