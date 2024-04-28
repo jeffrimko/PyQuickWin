@@ -170,9 +170,13 @@ class ProcessorBase(ABC):
     @abstractproperty
     def help(self) -> str:
         pass
+    def __init__(self):
+        self.active = False
     def update(self, pinput: ProcessorInput) -> Optional[ProcessorOutput]:
         pass
     def on_hide(self):
+        pass
+    def on_activate(self, pinput: ProcessorInput):
         pass
 
 class SubprocessorBase(ProcessorBase):
@@ -597,9 +601,24 @@ class _WxUtils:
 def subprocessors(method):
     def wrapper(self, pinput):
         if hasattr(self, "_subprocessors"):
+            active_sub = None
             for sub in self._subprocessors:
-                if sub.use_processor(pinput):
-                    return sub.update(pinput)
+                if not active_sub and sub.use_processor(pinput):
+                    if not sub.active:
+                        sub.on_activate(pinput)
+                        pinput.lstview.selnum = 0
+                    sub.active = True
+                    active_sub = sub
+                else:
+                    sub.active = False
+            if active_sub:
+                self.active = False
+                return active_sub.update(pinput)
+            else:
+                if not self.active:
+                    self.on_activate(pinput)
+                    pinput.lstview.selnum = 0
+                self.active = True
         return method(self, pinput)
     return wrapper
 
