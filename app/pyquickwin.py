@@ -437,6 +437,8 @@ class DirListProcessor(SubprocessorBase):
         return Path(self.currdir, itemname)
 
     def update(self, pinput):
+        if len(pinput.lstview.rows) == 0:
+            return ProcessorOutput()
         reset_cmd = False
         path = self._get_path(pinput.selrow)
         if pinput.is_complete:
@@ -451,15 +453,6 @@ class DirListProcessor(SubprocessorBase):
             reset_cmd = True
         return self._render_rows(pinput, reset_cmd)
 
-    @staticmethod
-    def _remove_git_branch_suffix(dirpath):
-        if not dirpath.endswith("]"):
-            return dirpath
-        square_bracket_start_index = dirpath.rfind("[")
-        if square_bracket_start_index == -1:
-            return dirpath
-        return dirpath[:square_bracket_start_index].strip()
-
     def _load_initial_dir(self, pinput):
         _, title, exe, _ = pinput.selrow
         if exe.lower() != "explorer.exe":
@@ -471,14 +464,20 @@ class DirListProcessor(SubprocessorBase):
             return
         self.currdir = initial_dir
 
-    def _render_rows(self, pinput, reset_cmd=False):
-        cmdtext = pinput.cmd.split(self.prefix, maxsplit=1)[1]
+    @staticmethod
+    def _get_rows(cmdtxt, walkdir):
         rows = []
-        for item in walkall(self.currdir):
-            if StrCompare.choice(cmdtext, item.name):
-                rows.append([
-                    f"/{item.name}" if item.isdir() else item.name,
-                    "file" if item.isfile() else "dir" ])
+        for item in walkall(walkdir):
+            if StrCompare.choice(cmdtxt, item.name):
+                if item.isdir():
+                    rows.append([f"/{item.name}", "dir"])
+                elif item.isfile():
+                    rows.append([item.name, "file"])
+        return rows
+
+    def _render_rows(self, pinput, reset_cmd=False):
+        cmdtxt = pinput.cmd.split(self.prefix, maxsplit=1)[1]
+        rows = DirListProcessor._get_rows(cmdtxt, self.currdir)
         output = ProcessorOutput()
         selnum = pinput.lstview.selnum
         if reset_cmd:
@@ -490,8 +489,21 @@ class DirListProcessor(SubprocessorBase):
             rows,
             selnum
         )
-        output.add_txt(f"Listing dir content: {self.currdir}\nCurrent selected: {self._get_path(rows[selnum])}")
+        try:
+            selected_path = self._get_path(rows[selnum])
+        except:
+            selected_path = ""
+        output.add_txt(f"Listing dir content: {self.currdir}\nCurrent selected: {selected_path}")
         return output
+
+    @staticmethod
+    def _remove_git_branch_suffix(dirpath):
+        if not dirpath.endswith("]"):
+            return dirpath
+        square_bracket_start_index = dirpath.rfind("[")
+        if square_bracket_start_index == -1:
+            return dirpath
+        return dirpath[:square_bracket_start_index].strip()
 
 class MathProcessor(SubprocessorBase):
     """Processor to perform simple math calculations."""

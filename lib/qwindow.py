@@ -171,7 +171,7 @@ class ProcessorBase(ABC):
     def help(self) -> str:
         pass
     def __init__(self):
-        self.active = False
+        self._active = True
     def update(self, pinput: ProcessorInput) -> Optional[ProcessorOutput]:
         pass
     def on_hide(self):
@@ -180,6 +180,8 @@ class ProcessorBase(ABC):
         pass
 
 class SubprocessorBase(ProcessorBase):
+    def __init__(self):
+        self._active = False
     def use_processor(self, pinput: ProcessorInput) -> bool:
         pass
 
@@ -604,21 +606,21 @@ def subprocessors(method):
             active_sub = None
             for sub in self._subprocessors:
                 if not active_sub and sub.use_processor(pinput):
-                    if not sub.active:
+                    if not sub._active:
                         sub.on_activate(pinput)
                         pinput.lstview.selnum = 0
-                    sub.active = True
+                    sub._active = True
                     active_sub = sub
                 else:
-                    sub.active = False
+                    sub._active = False
             if active_sub:
-                self.active = False
+                self._active = False
                 return active_sub.update(pinput)
             else:
-                if not self.active:
+                if not self._active:
                     self.on_activate(pinput)
                     pinput.lstview.selnum = 0
-                self.active = True
+                self._active = True
         return method(self, pinput)
     return wrapper
 
