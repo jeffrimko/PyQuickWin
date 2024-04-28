@@ -12,6 +12,7 @@ import sys
 
 from auxly.filesys import Dir, File, Path, abspath, walkall, walkfiles, walkdirs
 import auxly
+import pyperclip
 import ujson
 import yaml
 
@@ -408,7 +409,13 @@ class WinManager:
 class DirListProcessor(SubprocessorBase):
 
     def __init__(self):
-        self.currdir = None
+        self.dirhist = []
+
+    @property
+    def currdir(self) -> Optional[Dir]:
+        if not self.dirhist:
+            return None
+        return self.dirhist[-1]
 
     @property
     def prefix(self):
@@ -421,61 +428,76 @@ class DirListProcessor(SubprocessorBase):
     def on_activate(self, pinput):
         self._load_initial_dir(pinput)
 
-    def on_hide(self):
-        self.currdir = None
-
     def use_processor(self, pinput):
         if len(pinput.cmd) == 0:
             return False
         return pinput.cmd[0] == self.prefix
 
     def _get_path(self, row):
-        itemname = row[0]
-        if row[1] == "dir":
-            itemname = itemname[1:]  # Remove the added slash prefix.
+        try:
+            itemname = row[0]
+            if row[1] == "dir":
+                itemname = itemname[1:]  # Remove the added slash prefix.
+                return Path(self.currdir, itemname)
             return Path(self.currdir, itemname)
-        return Path(self.currdir, itemname)
+        except:
+            return None
 
     def update(self, pinput):
-        if len(pinput.lstview.rows) == 0:
-            return ProcessorOutput()
         reset_cmd = False
+        out_txt = ""
         path = self._get_path(pinput.selrow)
         if pinput.is_complete:
             auxly.open(path)
             return ProcessorOutput(hide=True)
         elif pinput.event.is_hotkey(HotKeyKind.INTO):
             if path.isdir():
-                self.currdir = path
+                self.dirhist.append(path)
                 reset_cmd = True
+            elif path.isfile():
+                pyperclip.copy(path)
+                out_txt = "Copied path to clipboard: " + path
         elif pinput.event.is_hotkey(HotKeyKind.OUTOF):
-            self.currdir = self.currdir.parent
+            self.dirhist.append(self.currdir.parent)
             reset_cmd = True
-        return self._render_rows(pinput, reset_cmd)
+        elif pinput.event.is_hotkey(HotKeyKind.PREV):
+            if len(self.dirhist) > 1:
+                self.dirhist.pop()
+                reset_cmd = True
+            else:
+                out_txt = "No previous path history available"
+        return self._render_rows(pinput, reset_cmd, out_txt)
+
+    @staticmethod
+    def _get_fallback_dir():
+        return Dir("C:\\")
 
     def _load_initial_dir(self, pinput):
         _, title, exe, _ = pinput.selrow
         if exe.lower() != "explorer.exe":
-            self.currdir = self.currdir or "C:\\"
+            self.dirhist = [self.currdir or DirListProcessor._get_fallback_dir()]
             return
         initial_dir = Dir(DirListProcessor._remove_git_branch_suffix(title))
         if not initial_dir.isdir():
-            self.currdir = self.currdir or "C:\\"
+            self.dirhist = [self.currdir or DirListProcessor._get_fallback_dir()]
             return
-        self.currdir = initial_dir
+        self.dirhist = [initial_dir]
 
     @staticmethod
-    def _get_rows(cmdtxt, walkdir):
+    def _get_rows(cmdtxt, targetdir):
         rows = []
-        for item in walkall(walkdir):
-            if StrCompare.choice(cmdtxt, item.name):
-                if item.isdir():
-                    rows.append([f"/{item.name}", "dir"])
-                elif item.isfile():
-                    rows.append([item.name, "file"])
+        try:
+            for item in walkall(targetdir):
+                if StrCompare.choice(cmdtxt, item.name):
+                    if item.isdir():
+                        rows.append([f"/{item.name}", "dir"])
+                    elif item.isfile():
+                        rows.append([item.name, "file"])
+        except:
+            pass
         return rows
 
-    def _render_rows(self, pinput, reset_cmd=False):
+    def _render_rows(self, pinput, reset_cmd=False, out_txt=""):
         cmdtxt = pinput.cmd.split(self.prefix, maxsplit=1)[1]
         rows = DirListProcessor._get_rows(cmdtxt, self.currdir)
         output = ProcessorOutput()
@@ -493,7 +515,7 @@ class DirListProcessor(SubprocessorBase):
             selected_path = self._get_path(rows[selnum])
         except:
             selected_path = ""
-        output.add_txt(f"Listing dir content: {self.currdir}\nCurrent selected: {selected_path}")
+        output.add_txt(f"Listing dir content: {self.currdir}\nCurrent selected: {selected_path}\n{out_txt}")
         return output
 
     @staticmethod
