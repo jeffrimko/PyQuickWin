@@ -475,11 +475,11 @@ class DirListProcessor(SubprocessorBase):
     def _load_initial_dir(self, pinput):
         _, title, exe, _ = pinput.selrow
         if exe.lower() != "explorer.exe":
-            self.dirhist = [self.currdir or DirListProcessor._get_fallback_dir()]
+            self.dirhist = [DirListProcessor._get_fallback_dir()]
             return
         initial_dir = Dir(DirListProcessor._remove_git_branch_suffix(title))
         if not initial_dir.isdir():
-            self.dirhist = [self.currdir or DirListProcessor._get_fallback_dir()]
+            self.dirhist = [DirListProcessor._get_fallback_dir()]
             return
         self.dirhist = [initial_dir]
 
