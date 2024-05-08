@@ -42,6 +42,8 @@ class _Default:
 
 class EventKind(Enum):
     CMD_CHANGE = auto()
+    MOVE_UP = auto()
+    MOVE_DOWN = auto()
     HOTKEY_PRESS = auto()
     COL_LCLICK = auto()
     ROW_RCLICK = auto()
@@ -64,6 +66,14 @@ class BaseEvent:
 class CmdChangeEvent(BaseEvent):
     def __init__(self):
         super().__init__(EventKind.CMD_CHANGE)
+
+class MoveUpEvent(BaseEvent):
+    def __init__(self):
+        super().__init__(EventKind.MOVE_UP)
+
+class MoveDownEvent(BaseEvent):
+    def __init__(self):
+        super().__init__(EventKind.MOVE_DOWN)
 
 class HotKeyPressEvent(BaseEvent):
     def __init__(self, hotkey):
@@ -147,7 +157,7 @@ class ProcessorOutput:
     def add_cmd(self, text: str):
         self.cmdtext = CmdtextState(text=text)
 
-    def add_out(self, text: str):
+    def add_txt(self, text: str):
         self.outtext = OuttextState(text=text)
 
     def hide_rows(self):
@@ -160,10 +170,18 @@ class ProcessorBase(ABC):
     @abstractproperty
     def help(self) -> str:
         pass
+    def __init__(self):
+        self._active = True
     def update(self, pinput: ProcessorInput) -> Optional[ProcessorOutput]:
+        pass
+    def on_hide(self):
+        pass
+    def on_activate(self, pinput: ProcessorInput):
         pass
 
 class SubprocessorBase(ProcessorBase):
+    def __init__(self):
+        self._active = False
     def use_processor(self, pinput: ProcessorInput) -> bool:
         pass
 
@@ -391,6 +409,10 @@ class MainWindow(wx.MiniFrame):
         self.Hide()
         self.cmdtext.SetValue("")
         self.pinput.was_hidden = True
+        self.app.processor.on_hide()
+        if hasattr(self.app.processor, "_subprocessors"):
+            for sp in self.app.processor._subprocessors:
+                sp.on_hide()
 
     def DoShow(self):
         self.Show()
@@ -429,6 +451,7 @@ class MainWindow(wx.MiniFrame):
         if row < 0:
             row = self.lstview.GetItemCount() - 1
         self.SelectRowNum(row)
+        self.UpdateOutput(event=MoveUpEvent())
 
     def MoveViewDown(self, event):
         row = self.lstview.GetSelectedRow()
@@ -436,6 +459,7 @@ class MainWindow(wx.MiniFrame):
         if row >= self.lstview.GetItemCount():
             row = 0
         self.SelectRowNum(row)
+        self.UpdateOutput(event=MoveDownEvent())
 
     def MoveViewTop(self, event):
         self.SelectRowNum(0)
@@ -579,9 +603,24 @@ class _WxUtils:
 def subprocessors(method):
     def wrapper(self, pinput):
         if hasattr(self, "_subprocessors"):
+            active_sub = None
             for sub in self._subprocessors:
-                if sub.use_processor(pinput):
-                    return sub.update(pinput)
+                if not active_sub and sub.use_processor(pinput):
+                    if not sub._active:
+                        sub.on_activate(pinput)
+                        pinput.lstview.selnum = 0
+                    sub._active = True
+                    active_sub = sub
+                else:
+                    sub._active = False
+            if active_sub:
+                self._active = False
+                return active_sub.update(pinput)
+            else:
+                if not self._active:
+                    self.on_activate(pinput)
+                    pinput.lstview.selnum = 0
+                self._active = True
         return method(self, pinput)
     return wrapper
 

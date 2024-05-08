@@ -10,8 +10,9 @@ import csv
 import os
 import sys
 
-from auxly.filesys import Dir, File, abspath, walkfiles, walkdirs
+from auxly.filesys import Dir, File, Path, abspath, walkall, walkfiles, walkdirs
 import auxly
+import pyperclip
 import ujson
 import yaml
 
@@ -38,6 +39,7 @@ from winctrl import WinControl, WinInfo
 LAUNCH_PREFIX = "."
 MATH_PREFIX = "="
 DIRAGG_PREFIX = ">"
+DIRLIST_PREFIX = "/"
 
 ##==============================================================#
 ## SECTION: Special Function Definitions                        #
@@ -404,6 +406,127 @@ class WinManager:
             alias[WinInfo(**i[0])] = i[1]
         return alias
 
+class DirListProcessor(SubprocessorBase):
+
+    def __init__(self):
+        self.dirhist = []
+
+    @property
+    def currdir(self) -> Optional[Dir]:
+        if not self.dirhist:
+            return None
+        return self.dirhist[-1]
+
+    @property
+    def prefix(self):
+        return DIRLIST_PREFIX
+
+    @property
+    def help(self) -> str:
+        return "DirList processor prefix: " + self.prefix
+
+    def on_activate(self, pinput):
+        self._load_initial_dir(pinput)
+
+    def use_processor(self, pinput):
+        if len(pinput.cmd) == 0:
+            return False
+        return pinput.cmd[0] == self.prefix
+
+    def _get_path(self, row):
+        try:
+            itemname = row[0]
+            if row[1] == "dir":
+                itemname = itemname[1:]  # Remove the added slash prefix.
+                return Path(self.currdir, itemname)
+            return Path(self.currdir, itemname)
+        except:
+            return None
+
+    def update(self, pinput):
+        reset_cmd = False
+        out_txt = ""
+        path = self._get_path(pinput.selrow)
+        if pinput.is_complete:
+            auxly.open(path)
+            return ProcessorOutput(hide=True)
+        elif pinput.event.is_hotkey(HotKeyKind.INTO):
+            if path.isdir():
+                self.dirhist.append(path)
+                reset_cmd = True
+            elif path.isfile():
+                pyperclip.copy(path)
+                out_txt = "Copied path to clipboard: " + path
+        elif pinput.event.is_hotkey(HotKeyKind.OUTOF):
+            self.dirhist.append(self.currdir.parent)
+            reset_cmd = True
+        elif pinput.event.is_hotkey(HotKeyKind.PREV):
+            if len(self.dirhist) > 1:
+                self.dirhist.pop()
+                reset_cmd = True
+            else:
+                out_txt = "No previous path history available"
+        return self._render_rows(pinput, reset_cmd, out_txt)
+
+    @staticmethod
+    def _get_fallback_dir():
+        return Dir("C:\\")
+
+    def _load_initial_dir(self, pinput):
+        _, title, exe, _ = pinput.selrow
+        if exe.lower() != "explorer.exe":
+            self.dirhist = [DirListProcessor._get_fallback_dir()]
+            return
+        initial_dir = Dir(DirListProcessor._remove_git_branch_suffix(title))
+        if not initial_dir.isdir():
+            self.dirhist = [DirListProcessor._get_fallback_dir()]
+            return
+        self.dirhist = [initial_dir]
+
+    @staticmethod
+    def _get_rows(cmdtxt, targetdir):
+        rows = []
+        try:
+            for item in walkall(targetdir):
+                if StrCompare.choice(cmdtxt, item.name):
+                    if item.isdir():
+                        rows.append([f"/{item.name}", "dir"])
+                    elif item.isfile():
+                        rows.append([item.name, "file"])
+        except:
+            pass
+        return rows
+
+    def _render_rows(self, pinput, reset_cmd=False, out_txt=""):
+        cmdtxt = pinput.cmd.split(self.prefix, maxsplit=1)[1]
+        rows = DirListProcessor._get_rows(cmdtxt, self.currdir)
+        output = ProcessorOutput()
+        selnum = pinput.lstview.selnum
+        if reset_cmd:
+            output.add_cmd(self.prefix)
+            selnum = 0
+        output.add_rows(
+            ["Name", "Type"],
+            [5, 1],
+            rows,
+            selnum
+        )
+        try:
+            selected_path = self._get_path(rows[selnum])
+        except:
+            selected_path = ""
+        output.add_txt(f"Listing dir content: {self.currdir}\nCurrent selected: {selected_path}\n{out_txt}")
+        return output
+
+    @staticmethod
+    def _remove_git_branch_suffix(dirpath):
+        if not dirpath.endswith("]"):
+            return dirpath
+        square_bracket_start_index = dirpath.rfind("[")
+        if square_bracket_start_index == -1:
+            return dirpath
+        return dirpath[:square_bracket_start_index].strip()
+
 class MathProcessor(SubprocessorBase):
     """Processor to perform simple math calculations."""
 
@@ -421,14 +544,14 @@ class MathProcessor(SubprocessorBase):
         return pinput.cmd[0] == self.prefix
 
     def update(self, pinput):
-        cmdtext = pinput.cmd.split("=", maxsplit=1)[1]
+        cmdtext = pinput.cmd.split(self.prefix, maxsplit=1)[1]
         output = ProcessorOutput()
         output.hide_rows()
         try:
             result = eval(cmdtext)
-            output.add_out(f"Math result: {result}")
+            output.add_txt(f"Math result: {result}")
         except Exception:
-            output.add_out(f"Math result:")
+            output.add_txt(f"Math result:")
         return output
 
 class DirAggProcessor(SubprocessorBase):
@@ -494,7 +617,7 @@ class DirAggProcessor(SubprocessorBase):
             rows,
             pinput.lstview.selnum
         )
-        output.add_out("\n".join(outtext))
+        output.add_txt("\n".join(outtext))
         return output
 
     def _show_available_categories(self, pinput, cmdtext):
@@ -515,7 +638,7 @@ class DirAggProcessor(SubprocessorBase):
             rows,
             pinput.lstview.selnum
         )
-        output.add_out("Select a DirAgg category")
+        output.add_txt("Select a DirAgg category")
         return output
 
 class LaunchProcessor(SubprocessorBase):
@@ -542,33 +665,38 @@ class LaunchProcessor(SubprocessorBase):
     @update_histmgr
     def update(self, pinput):
         if pinput.is_complete and pinput.selrow:
-            stem,ext = pinput.selrow
-            selpath = File(self._path, stem + ext)
-            auxly.open(selpath)
-            return ProcessorOutput(hide=True)
-        cmdtext = pinput.cmd[1:].lstrip()
-        output = ProcessorOutput()
-        rows = []
-        for f in walkfiles(self._path):
-            if not StrCompare.choice(cmdtext, f.name):
-                continue
-            rows.append([f.stem, f.ext])
-        selnum = self._histmgr.match_to_row(pinput.cmd.strip(), [r[0] for r in rows])
-        if selnum is None:
-            selnum = pinput.lstview.selnum
-        output.add_out(f"Launch items found: {len(rows)}")
-        output.add_rows(
-            ["Name", "Ext"],
-            [3, 1],
-            rows,
-            selnum
-        )
-        return output
+            return self._open_selected(pinput)
+        if pinput.event.kind == EventKind.CMD_CHANGE:
+            cmdtext = pinput.cmd[1:].lstrip()
+            rows = []
+            for f in walkfiles(self._path):
+                if not StrCompare.choice(cmdtext, f.name):
+                    continue
+                rows.append([f.stem, f.ext])
+            selnum = self._histmgr.match_to_row(pinput.cmd.strip(), [r[0] for r in rows])
+            if selnum is None:
+                selnum = pinput.lstview.selnum
+            output = ProcessorOutput()
+            output.add_txt(f"Launch items found: {len(rows)}")
+            output.add_rows(
+                ["Name", "Ext"],
+                [3, 1],
+                rows,
+                selnum
+            )
+            return output
+
+    def _open_selected(self, pinput):
+        stem,ext = pinput.selrow
+        selpath = File(self._path, stem + ext)
+        auxly.open(selpath)
+        return ProcessorOutput(hide=True)
 
 class Processor(ProcessorBase):
     """The main QuickWin processor. Provides a list of OS windows and allows
     the user to select one to switch to (similar to ALT+TAB)."""
     def __init__(self, cfg, subprocessors=None):
+        super(Processor, self).__init__()
         self._outtext: List[str] = []
         alias_path = format_outpath(cfg, "quickwin-alias")
         self._winmgr = WinManager(alias_path, cfg.get('exclude_file'))
@@ -645,7 +773,7 @@ class Processor(ProcessorBase):
                 self._winmgr.get_alias(win)
             ])
         output = ProcessorOutput()
-        output.add_out(self._render_outtext())
+        output.add_txt(self._render_outtext())
         output.add_rows(
             ["Number", "Title", "Executable", "Alias"],
             [6, 74, 10, 10],
@@ -867,7 +995,7 @@ def start_app():
         fatal("Config file must contain a 'output_dir' key!")
 
     menuitems = []
-    subprocessors = [MathProcessor()]
+    subprocessors = [MathProcessor(), DirListProcessor()]
     processor_cfg = get_processor_config(main_cfg, 'diragg')
     if processor_cfg:
         diragg = DirAggProcessor(processor_cfg)

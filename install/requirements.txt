@@ -4,3 +4,5 @@ PyYAML
 psutil
 ujson
 wxPython
+pywin32
+
