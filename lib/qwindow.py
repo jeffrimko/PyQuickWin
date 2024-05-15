@@ -171,17 +171,13 @@ class ProcessorBase(ABC):
     def help(self) -> str:
         pass
     def __init__(self):
-        self._active = True
+        self._is_active = False
     def update(self, pinput: ProcessorInput) -> Optional[ProcessorOutput]:
-        pass
-    def on_hide(self):
         pass
     def on_activate(self, pinput: ProcessorInput):
         pass
 
 class SubprocessorBase(ProcessorBase):
-    def __init__(self):
-        self._active = False
     def use_processor(self, pinput: ProcessorInput) -> bool:
         pass
 
@@ -409,10 +405,10 @@ class MainWindow(wx.MiniFrame):
         self.Hide()
         self.cmdtext.SetValue("")
         self.pinput.was_hidden = True
-        self.app.processor.on_hide()
+        self.app.processor._is_active = False
         if hasattr(self.app.processor, "_subprocessors"):
             for sp in self.app.processor._subprocessors:
-                sp.on_hide()
+                sp._is_active = False
 
     def DoShow(self):
         self.Show()
@@ -606,21 +602,21 @@ def subprocessors(method):
             active_sub = None
             for sub in self._subprocessors:
                 if not active_sub and sub.use_processor(pinput):
-                    if not sub._active:
+                    if not sub._is_active:
                         sub.on_activate(pinput)
                         pinput.lstview.selnum = 0
-                    sub._active = True
+                    sub._is_active = True
                     active_sub = sub
                 else:
-                    sub._active = False
+                    sub._is_active = False
             if active_sub:
-                self._active = False
+                self._is_active = False
                 return active_sub.update(pinput)
             else:
-                if not self._active:
+                if not self._is_active:
                     self.on_activate(pinput)
                     pinput.lstview.selnum = 0
-                self._active = True
+                self._is_active = True
         return method(self, pinput)
     return wrapper
 
