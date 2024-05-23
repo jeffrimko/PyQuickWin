@@ -279,10 +279,10 @@ class WinManager:
     def selected_index(self) -> int:
         if not self._selected_win:
             return 0
-        return self.wins.index(self._selected_win)
+        return self.displayed_wins.index(self._selected_win)
 
     @property
-    def wins(self) -> List[ManagedWindow]:
+    def displayed_wins(self) -> List[ManagedWindow]:
         wins = [win for win in self._allwins if win.is_displayed]
         if self._orderby:
             def get_sortkey(mwin: ManagedWindow):
@@ -295,7 +295,7 @@ class WinManager:
     def reload_exclusions(self):
         self._excluder.reload_exclusions()
 
-    def reset(self):
+    def refresh(self):
         self._allwins = []
         self._orderby = None
         winlist = WinControl.list()
@@ -316,20 +316,24 @@ class WinManager:
         if not self._selected_win and len(self._allwins) > 0:
             self._selected_win = self._allwins[0]
 
-    def update(self, pinput):
+    def update(self, pinput, with_refresh=True):
         def update_selected_win():
             clear_selected = pinput.was_hidden
             if clear_selected:
                 self._selected_win = None
                 return
-            select_from_input = pinput.lstview.selnum >= 0 and len(self.wins) > pinput.lstview.selnum
+            select_from_input = pinput.lstview.selnum >= 0 and len(self.displayed_wins) > pinput.lstview.selnum
             if select_from_input:
-                self._selected_win = self.wins[pinput.lstview.selnum]
+                self._selected_win = self.displayed_wins[pinput.lstview.selnum]
                 return
 
         update_selected_win()
         for win in self._allwins:
             win.is_displayed = True
+
+        # Refresh must run after update.
+        if with_refresh:
+            self.refresh()
 
     def filter(self, cmdtext, getwintext=None, exact=False):
         def default(mwin: ManagedWindow):
@@ -342,7 +346,7 @@ class WinManager:
                 return StrCompare.exact(cmdtext, wintext)
             return StrCompare.choice(cmdtext, wintext)
         prev_displayed_win = None
-        for win in self.wins:
+        for win in self.displayed_wins:
             win.is_displayed = should_display(win)
             should_update_selected_win = not win.is_displayed and win is self._selected_win
             if should_update_selected_win:
@@ -726,9 +730,6 @@ class Processor(ProcessorBase):
     def update(self, pinput):
         self._winmgr.update(pinput)
         cmds = parse_cmds(pinput.cmdtext.text)
-        if (not pinput.cmdtext.text) and (not cmds):
-            self._winmgr.reset()
-
         cmd_on_complete = self._handle_incomplete(cmds)
         if pinput.is_complete:
             return self._handle_complete(cmd_on_complete)
@@ -762,12 +763,12 @@ class Processor(ProcessorBase):
         return poutput
 
     def _render_rows(self):
-        wins = self._winmgr.wins
-        self._outtext.append(f'Windows found: {len(wins)}')
+        displayed_wins = self._winmgr.displayed_wins
+        self._outtext.append(f'Windows found: {len(displayed_wins)}')
         rows = []
-        for win in wins:
+        for win in displayed_wins:
             rows.append([
-                format_num(win.num, len(wins)),
+                format_num(win.num, len(displayed_wins)),
                 win.title,
                 win.exe,
                 self._winmgr.get_alias(win)
