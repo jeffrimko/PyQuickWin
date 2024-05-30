@@ -282,6 +282,10 @@ class WinManager:
         return self.displayed_wins.index(self._selected_win)
 
     @property
+    def len_allwins(self) -> int:
+        return len(self._allwins)
+
+    @property
     def displayed_wins(self) -> List[ManagedWindow]:
         wins = [win for win in self._allwins if win.is_displayed]
         if self._orderby:
@@ -764,11 +768,12 @@ class Processor(ProcessorBase):
 
     def _render_rows(self):
         displayed_wins = self._winmgr.displayed_wins
+        len_allwins = self._winmgr.len_allwins
         self._outtext.append(f'Windows found: {len(displayed_wins)}')
         rows = []
         for win in displayed_wins:
             rows.append([
-                format_num(win.num, len(displayed_wins)),
+                format_num(win.num, len_allwins),
                 win.title,
                 win.exe,
                 self._winmgr.get_alias(win)
