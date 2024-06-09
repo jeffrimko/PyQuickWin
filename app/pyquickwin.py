@@ -147,7 +147,7 @@ class HistStore:
     def len(self, prefix: Optional[str] = None) -> int:
         return len(self._filter(prefix))
 
-    def add(self, pinput):
+    def add(self, pinput: ProcessorInput):
         cmd = pinput.cmd.strip()
         row = None
         if self._save_rownum is not None:
@@ -163,7 +163,7 @@ class HistStore:
         self._hists = new_hists
         self._save()
 
-    def _filter(self, prefix: str):
+    def _filter(self, prefix: str) -> List[HistEntry]:
         result = []
         for hist in self._hists:
             if hist.cmd.startswith(prefix or ''):
@@ -207,7 +207,7 @@ class HistManager:
         self._pointer = -1
         self._cmd_prefix = None
 
-    def get_next(self, cmd_prefix: str) -> str:
+    def get_next(self, cmd_prefix: str) -> Optional[str]:
         self._try_set_cmd_prefix(cmd_prefix)
         self._pointer += 1
         if self._pointer >= self._hists.len(self._cmd_prefix):
@@ -216,7 +216,7 @@ class HistManager:
             return None
         return self._hists.get(self._cmd_prefix, self._pointer).cmd
 
-    def get_prev(self, cmd_prefix: str) -> str:
+    def get_prev(self, cmd_prefix: str) -> Optional[str]:
         self._try_set_cmd_prefix(cmd_prefix)
         self._pointer -= 1
         if self._pointer < 0:
@@ -245,7 +245,7 @@ class WinExcluder:
         if self._exclude_path and os.path.isfile(self._exclude_path):
             self._exclusions = load_config(self._exclude_path)
 
-    def is_excluded(self, winfo: WinInfo):
+    def is_excluded(self, winfo: WinInfo) -> bool:
         for exclusion in self._exclusions:
             title = exclusion.get('title')
             exe = exclusion.get('exe')
