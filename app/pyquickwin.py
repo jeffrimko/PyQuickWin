@@ -5,7 +5,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, asdict
 from enum import Enum, auto
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional
 import csv
 import os
 import sys
@@ -136,6 +136,7 @@ class HistStore:
         self._histfile = File(hist_path, make=True)
         self._max_entries = max_entries
         self._save_rownum = save_rownum
+        self._hists: List[HistEntry] = []
         self._load()
 
     def get(self, prefix: Optional[str] = None, idx: int = 0) -> Optional[HistEntry]:
@@ -404,7 +405,7 @@ class WinManager:
         for p in prune:
             del self._alias[p]
 
-    def _load_alias_file(self):
+    def _load_alias_file(self) -> Dict[WinInfo, str]:
         alias = {}
         try:
             inlist = load_output(self._alias_file)
@@ -847,8 +848,9 @@ class Processor(ProcessorBase):
 
 class StrCompare:
     """Provides various string comparison methods."""
-    def _argcheck(method):
-        def wrapper(test, target):
+    @staticmethod
+    def _argcheck(method: Callable[[str, str], bool]):
+        def wrapper(test: str, target: str) -> bool:
             if not test: return True
             if not target: return False
             return method(test, target)
@@ -963,7 +965,7 @@ def save_output(out_file, output):
     json = ujson.dumps(output)
     out_file.write(json)
 
-def load_output(out_file):
+def load_output(out_file: File):
     if not out_file.isfile():
         return None
     raw = out_file.read()
