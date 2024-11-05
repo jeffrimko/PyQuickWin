@@ -111,11 +111,11 @@ class ManagedWindow:
         return self._is_displayed
 
     @is_displayed.setter
-    def is_displayed(self, value):
+    def is_displayed(self, value: bool):
         self._is_displayed = value
 
     @property
-    def num(self) -> str:
+    def num(self) -> int:
         return self._num
 
     @property
@@ -164,7 +164,7 @@ class HistStore:
         self._hists = new_hists
         self._save()
 
-    def _filter(self, prefix: str) -> List[HistEntry]:
+    def _filter(self, prefix: Optional[str]) -> List[HistEntry]:
         result = []
         for hist in self._hists:
             if hist.cmd.startswith(prefix or ''):
@@ -384,7 +384,8 @@ class WinManager:
             return
         alias_lookup = dict(zip(self._alias.values(), self._alias.keys()))
         alias_winfo = alias_lookup.get(alias, None)
-        self._alias.pop(alias_winfo, None)
+        if alias_winfo:
+            self._alias.pop(alias_winfo, None)
         self._alias[mwin.winfo] = alias
         self._save_alias_file()
 
