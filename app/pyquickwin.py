@@ -570,7 +570,7 @@ class DirAggProcessor(SubprocessorBase):
     def __init__(self, cfg):
         self._path = cfg['locations_file']
         self._cfg = {}
-        self._category = None
+        self._category: Optional[str] = None
         self.reload_config()
 
     @property
@@ -591,10 +591,34 @@ class DirAggProcessor(SubprocessorBase):
             return False
         return pinput.cmd.startswith(self.prefix)
 
-    def update(self, pinput):
-        cmdtext = pinput.cmd[1:].lstrip()
+    @property
+    def _categories(self) -> List[str]:
+        return self._cfg.keys()
+
+    def update(self, pinput) -> Optional[ProcessorOutput]:
+        cmdtext = pinput.cmd[len(self.prefix):].lstrip()
+
+        should_get_category_from_cmdtext = self._category is None and cmdtext.count(self.prefix) > 0
+        if should_get_category_from_cmdtext:
+            cattext = cmdtext.split(self.prefix)[0]
+            should_use_selected_row = len(cattext) == 0
+            if should_use_selected_row:
+                self._category = get_selrowtext(pinput, 0)
+            else:
+                categories = self._filter_categories(cattext)
+                if len(categories) > 0:
+                    self._category = categories[0]
+
+        should_split_off_cmdtext = self._category is not None and cmdtext.count(self.prefix) > 0
+        if should_split_off_cmdtext:
+            cmdtext = cmdtext.split(self.prefix)[1]
+
         if pinput.event.is_hotkey(HotKeyKind.OUTOF):
             self._category = None
+            output = ProcessorOutput()
+            output.add_cmd(self.prefix)
+            return output
+
         if self._category is None:
             return self._show_available_categories(pinput, cmdtext)
         return self._show_selected_category(pinput, cmdtext)
@@ -630,22 +654,26 @@ class DirAggProcessor(SubprocessorBase):
         output.add_txt("\n".join(outtext))
         return output
 
+    def _filter_categories(self, filter_text: str) -> List[str]:
+        result = []
+        for c in self._categories:
+            if not StrCompare.choice(filter_text, c):
+                continue
+            result.append(c)
+        return result
+
     def _show_available_categories(self, pinput, cmdtext):
         if pinput.selrow and (pinput.is_complete or pinput.event.is_hotkey(HotKeyKind.INTO)):
             self._category = pinput.selrow[0]
             output = ProcessorOutput()
             output.add_cmd(self.prefix)
             return output
-        rows = []
-        for k in self._cfg.keys():
-            if not StrCompare.choice(cmdtext, k):
-                continue
-            rows.append([k])
+        categories = self._filter_categories(cmdtext)
         output = ProcessorOutput()
         output.add_rows(
             ["Name"],
             [1],
-            rows,
+            [[c] for c in categories],
             pinput.lstview.selnum
         )
         output.add_txt("Select a DirAgg category")
@@ -898,7 +926,7 @@ class StrCompare:
 ## SECTION: Function Definitions                                #
 ##==============================================================#
 
-def get_selrowtext(pinput, rownum):
+def get_selrowtext(pinput, rownum) -> str:
     try:
         return pinput.selrow[rownum]
     except Exception:

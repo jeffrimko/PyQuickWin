@@ -2,7 +2,7 @@
 ## SECTION: Imports                                             #
 ##==============================================================#
 
-from abc import ABC, abstractproperty
+from abc import ABC, abstractmethod
 from collections import namedtuple
 from dataclasses import dataclass, field
 from enum import Enum, auto
@@ -167,17 +167,20 @@ class ProcessorOutput:
         self.lstview = LstviewState(colnames=names, colprops=props, rows=rows, selnum=selnum)
 
 class ProcessorBase(ABC):
-    @abstractproperty
+    @property
+    @abstractmethod
     def help(self) -> str:
         pass
     def __init__(self):
         self._is_active = False
+    @abstractmethod
     def update(self, pinput: ProcessorInput) -> Optional[ProcessorOutput]:
         pass
     def on_activate(self, pinput: ProcessorInput):
         pass
 
 class SubprocessorBase(ProcessorBase):
+    @abstractmethod
     def use_processor(self, pinput: ProcessorInput) -> bool:
         pass
 
