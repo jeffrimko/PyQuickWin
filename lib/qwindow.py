@@ -167,15 +167,23 @@ class ProcessorOutput:
         self.lstview = LstviewState(colnames=names, colprops=props, rows=rows, selnum=selnum)
 
 class ProcessorBase(ABC):
+    def __init__(self):
+        self._is_active = False
+        self._was_activated = False
+
     @property
     @abstractmethod
     def help(self) -> str:
         pass
-    def __init__(self):
-        self._is_active = False
+
+    @property
+    def was_activated(self) -> bool:
+        return self._was_activated
+
     @abstractmethod
     def update(self, pinput: ProcessorInput) -> Optional[ProcessorOutput]:
         pass
+
     def on_activate(self, pinput: ProcessorInput):
         pass
 
@@ -409,9 +417,11 @@ class MainWindow(wx.MiniFrame):
         self.cmdtext.SetValue("")
         self.pinput.was_hidden = True
         self.app.processor._is_active = False
+        self.app.processor._was_activated = False
         if hasattr(self.app.processor, "_subprocessors"):
             for sp in self.app.processor._subprocessors:
                 sp._is_active = False
+                sp._was_activated = False
 
     def DoShow(self):
         self.Show()
@@ -606,6 +616,7 @@ def subprocessors(method):
             for sub in self._subprocessors:
                 if not active_sub and sub.use_processor(pinput):
                     if not sub._is_active:
+                        sub._was_activated = True
                         sub.on_activate(pinput)
                         pinput.lstview.selnum = 0
                     sub._is_active = True
@@ -614,11 +625,16 @@ def subprocessors(method):
                     sub._is_active = False
             if active_sub:
                 self._is_active = False
-                return active_sub.update(pinput)
+                result = active_sub.update(pinput)
+                active_sub._was_activated = False
+                return result
             else:
                 if not self._is_active:
+                    self._was_activated = True
                     self.on_activate(pinput)
                     pinput.lstview.selnum = 0
+                else:
+                    self._was_activated = False
                 self._is_active = True
         return method(self, pinput)
     return wrapper

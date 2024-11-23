@@ -36,10 +36,11 @@ from winctrl import WinControl, WinInfo
 ## SECTION: Global Definitions                                  #
 ##==============================================================#
 
-LAUNCH_PREFIX = "."
-MATH_PREFIX = "="
 DIRAGG_PREFIX = ">"
 DIRLIST_PREFIX = "/"
+LAUNCH_PREFIX = "."
+MATH_PREFIX = "="
+QUICKCMD_PREFIX = "`"
 
 ##==============================================================#
 ## SECTION: Special Function Definitions                        #
@@ -54,15 +55,15 @@ def update_histmgr(method):
         histmgr: HistManager = getattr(processor, "_histmgr", None)
         if histmgr is None:
             fatal(f"Processor {processor} has no HistManager attribute named _histmgr!")
-        if pinput.was_hidden or pinput.cmd == processor.prefix:
+        if pinput.was_hidden or processor.was_activated:
             histmgr.reset()
         if pinput.event.is_hotkey(HotKeyKind.PREV):
             pout = ProcessorOutput()
-            pout.add_cmd(histmgr.get_prev(pinput.cmd))
+            pout.add_cmd(histmgr.get_prev_cmd(pinput.cmd))
             return pout
         elif pinput.event.is_hotkey(HotKeyKind.NEXT):
             pout = ProcessorOutput()
-            pout.add_cmd(histmgr.get_next(pinput.cmd))
+            pout.add_cmd(histmgr.get_next_cmd(pinput.cmd))
             return pout
         if pinput.is_complete and pinput.cmd:
             histmgr.add(pinput)
@@ -208,23 +209,31 @@ class HistManager:
         self._pointer = -1
         self._cmd_prefix = None
 
-    def get_next(self, cmd_prefix: str) -> Optional[str]:
+    def get_next_entry(self, cmd_prefix: str) -> Optional[HistEntry]:
         self._try_set_cmd_prefix(cmd_prefix)
         self._pointer += 1
         if self._pointer >= self._hists.len(self._cmd_prefix):
             self._pointer = self._hists.len(self._cmd_prefix) - 1
         if self._hists.len(self._cmd_prefix) == 0:
             return None
-        return self._hists.get(self._cmd_prefix, self._pointer).cmd
+        return self._hists.get(self._cmd_prefix, self._pointer)
 
-    def get_prev(self, cmd_prefix: str) -> Optional[str]:
+    def get_next_cmd(self, cmd_prefix: str) -> Optional[str]:
+        entry = self.get_next_entry(cmd_prefix)
+        return entry.cmd if entry else None
+
+    def get_prev_entry(self, cmd_prefix: str) -> Optional[HistEntry]:
         self._try_set_cmd_prefix(cmd_prefix)
         self._pointer -= 1
         if self._pointer < 0:
             self._pointer = 0
         if self._hists.len(self._cmd_prefix) == 0:
             return None
-        return self._hists.get(self._cmd_prefix, self._pointer).cmd
+        return self._hists.get(self._cmd_prefix, self._pointer)
+
+    def get_prev_cmd(self, cmd_prefix: str) -> Optional[str]:
+        entry = self.get_prev_entry(cmd_prefix)
+        return entry.cmd if entry else None
 
     def _try_set_cmd_prefix(self, cmd_prefix):
         should_set = self._cmd_prefix is None
@@ -563,6 +572,71 @@ class MathProcessor(SubprocessorBase):
         except Exception:
             output.add_txt(f"Math result:")
         return output
+
+class QuickCmdProcessor(SubprocessorBase):
+    """Processor to perform simple math calculations."""
+    def __init__(self, cfg):
+        hist_path = format_outpath(cfg, "quickcmd-hist")
+        self._histmgr = HistManager(hist_path, 0)
+        self._path = cfg['config_file']
+        self._cmds = None
+        self.reload_config()
+
+    @property
+    def prefix(self):
+        return QUICKCMD_PREFIX
+
+    @property
+    def help(self) -> str:
+        return "QuickCmd processor prefix: " + self.prefix
+
+    def use_processor(self, pinput):
+        if len(pinput.cmd) == 0:
+            return False
+        return pinput.cmd[0] == self.prefix
+
+    @update_histmgr
+    def update(self, pinput):
+        if pinput.selrow and (pinput.is_complete or pinput.event.is_hotkey(HotKeyKind.INTO)):
+            return self._set_cmd(pinput)
+        cmdtext = remove_prefix(self.prefix, pinput.cmd)
+        rows = self._filter_rows(cmdtext)
+        try_sel_prev = self.was_activated
+        if try_sel_prev:
+            try:
+                entry = self._histmgr.get_prev_entry(self.prefix)
+                names = [row[0] for row in rows]
+                selnum = names.index(entry.row)
+            except:
+                selnum = 0
+        else:
+            selnum = pinput.lstview.selnum
+        output = ProcessorOutput()
+        output.add_txt(f"Found {len(rows)} matching QuickCmds")
+        output.add_rows(
+            ["Name", "Command"],
+            [1, 3],
+            rows,
+            selnum
+        )
+        return output
+
+    def _filter_rows(self, filter_text):
+        result = []
+        for name,cmd in self._cmds.items():
+            if not StrCompare.choice(filter_text, name):
+                continue
+            result.append([name, cmd])
+        return result
+
+    def _set_cmd(self, pinput):
+        output = ProcessorOutput()
+        _,cmd = pinput.selrow
+        output.add_cmd(cmd)
+        return output
+
+    def reload_config(self):
+        self._cmds = load_config(self._path)
 
 class DirAggProcessor(SubprocessorBase):
     """Processor that aggregates child directories from multiple parents and
@@ -926,6 +1000,12 @@ class StrCompare:
 ## SECTION: Function Definitions                                #
 ##==============================================================#
 
+def remove_prefix(prefix, text) -> str:
+    try:
+        return text.split(prefix, maxsplit=1)[1]
+    except:
+        return text or ""
+
 def get_selrowtext(pinput, rownum) -> str:
     try:
         return pinput.selrow[rownum]
@@ -1048,6 +1128,18 @@ def start_app():
     if processor_cfg:
         launch = LaunchProcessor(processor_cfg)
         subprocessors.append(launch)
+
+    processor_cfg = get_processor_config(main_cfg, 'quickcmd')
+    if processor_cfg:
+        quickcmd = QuickCmdProcessor(processor_cfg)
+        subprocessors.append(quickcmd)
+        menuitems.append(
+            MenuItem(
+                name='Reload QuickCmd config',
+                msg='QuickCmd configuration has been reloaded from file',
+                func=quickcmd.reload_config
+            )
+        )
 
     processor_cfg = get_processor_config(main_cfg, 'quickwin') or get_processor_config(main_cfg, '__common__')
     processor = Processor(processor_cfg, subprocessors)
