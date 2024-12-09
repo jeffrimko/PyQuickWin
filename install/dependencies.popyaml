@@ -52,3 +52,9 @@ deps:
     ref: 'https://pypi.org/project/wxPython/'
     ver: 'latest'
     cmd: python -c "import wx"
+
+  - name: 'Pyperclip'
+    desc: 'Python clipboard module.'
+    ref: 'https://pypi.org/project/pyperclip/'
+    ver: 'latest'
+    cmd: python -c "import pyperclip"

@@ -5,4 +5,4 @@ psutil
 ujson
 wxPython
 pywin32
-
+pyperclip
