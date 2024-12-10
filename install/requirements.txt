@@ -4,5 +4,5 @@ PyYAML
 psutil
 ujson
 wxPython
-pywin32
 pyperclip
+pywin32; sys_platform == 'win32'
