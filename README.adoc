@@ -1,7 +1,7 @@
 = PyQuickWin
 
 == Introduction
-This project provides a Python 3.8+ GUI application that allows quick keyboard-based switching between open windows as well as the ability to bookmark frequently used windows for quick return. PyQuickWin supplements standard alt-tabbing while providing additional window movement control for those comfortable navigating with a keyboard. Additional features are provided through optional application modes.
+This project provides a Python 3.10+ GUI application that allows quick keyboard-based switching between open windows as well as the ability to bookmark frequently used windows for quick return. PyQuickWin supplements standard alt-tabbing while providing additional window movement control for those comfortable navigating with a keyboard. Additional features are provided through optional application modes.
 
 This project is a reimplementation of the original https://github.com/jeffrimko/QuickWin[QuickWin] application.
 

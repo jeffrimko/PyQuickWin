@@ -5,6 +5,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, asdict
 from enum import Enum, auto
+from functools import wraps
 from typing import Callable, Dict, List, Optional
 import csv
 import os
@@ -953,6 +954,7 @@ class StrCompare:
     """Provides various string comparison methods."""
     @staticmethod
     def _argcheck(method: Callable[[str, str], bool]):
+        @wraps(method)
         def wrapper(test: str, target: str) -> bool:
             if not test: return True
             if not target: return False
