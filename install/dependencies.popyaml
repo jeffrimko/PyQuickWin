@@ -14,7 +14,7 @@ deps:
   - name: 'Python'
     desc: 'Python language interpreter.'
     ref: 'https://www.python.org'
-    ver: '3.8+'
+    ver: '3.10+'
     cmd: python -V
 
   - name: 'Pip'
@@ -58,3 +58,9 @@ deps:
     ref: 'https://pypi.org/project/pyperclip/'
     ver: 'latest'
     cmd: python -c "import pyperclip"
+
+  - name: 'simpleeval '
+    desc: 'Python simple safe sandboxed extensible expression evaluator.'
+    ref: 'https://pypi.org/project/simpleeval/'
+    ver: 'latest'
+    cmd: python -c "import simpleeval"

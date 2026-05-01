@@ -297,7 +297,8 @@ class App(wx.App):
 class MainWindow(wx.MiniFrame):
     def __init__(self, app):
         self.size = _WxUtils.CalcSize(0, app.config.winpct)
-        super(MainWindow, self).__init__(None, -1, "", size=self.size, style=wx.NO_BORDER | wx.STAY_ON_TOP)
+        super(MainWindow, self).__init__(None, -1, "", size=self.size, style=wx.BORDER_SIMPLE | wx.STAY_ON_TOP)
+        self._prev_colsig = None
         self.app = app
         fsizer = wx.BoxSizer(wx.VERTICAL)
         self.SetSizer(fsizer)
@@ -414,6 +415,7 @@ class MainWindow(wx.MiniFrame):
 
     def DoHide(self):
         self.Hide()
+        self.lstview.DeleteAllItems()
         self.cmdtext.SetValue("")
         self.pinput.was_hidden = True
         self.app.processor._is_active = False
@@ -426,9 +428,9 @@ class MainWindow(wx.MiniFrame):
     def DoShow(self):
         self.Show()
         self.Raise()
-        self.UpdateOutput()
         self.cmdtext.SetFocus()
         self.Layout()
+        wx.CallAfter(self.UpdateOutput)
 
     def OnActivate(self, event):
         lost_focus = self.FindFocus() is not None
@@ -536,23 +538,15 @@ class MainWindow(wx.MiniFrame):
                 self.lstview.Hide()
                 self.Layout()
             else:
-                self.lstview.Show()
-                self.Layout()
-                self.lstview.ClearColumns()
-                wmargin = 40  # Accounts for borders and scrollbar.
-                proptotal = sum(out.lstview.colprops)
-                for idx, colname in enumerate(out.lstview.colnames):
-                    width = floor((self.size[0] - wmargin) * (out.lstview.colprops[idx] / proptotal))
-                    self.lstview.AppendTextColumn(colname, width=width)
-                self.lstview.DeleteAllItems()
-                for row in out.lstview.rows:
-                    if row:
-                        self.lstview.AppendItem(row)
-                if out.lstview.selnum is None:
-                    self.SelectRowNum(0)
-                else:
-                    self.SelectRowNum(out.lstview.selnum)
-                self.pinput.lstview = out.lstview
+                self.lstview.Freeze()
+                try:
+                    self.lstview.Show()
+                    self.Layout()
+                    self._HandleLstviewCols(out)
+                    self._HandleLstviewRows(out)
+                    self.pinput.lstview = out.lstview
+                finally:
+                    self.lstview.Thaw()
 
         if outtext_prop == 0:
             self.outtext.Hide()
@@ -563,11 +557,34 @@ class MainWindow(wx.MiniFrame):
                 self.pinput.outtext.text = out.outtext.text
 
         # NOTE: Update cmdtext last! It will trigger another UpdateOutput()
-        # call. Could cause race condition if not careful here.
+        # call. Could cause race condition if not careful here. The SetValue()
+        # call is used here instead of an UpdateValue() call so that next/prev
+        # command behavior works as expected.
         if out.cmdtext is not None and out.cmdtext.text is not None:
             self.cmdtext.SetValue(out.cmdtext.text)
             self.cmdtext.SetInsertionPoint(len(out.cmdtext.text))
             self.pinput.cmdtext.text = out.cmdtext.text
+
+    def _HandleLstviewCols(self, out):
+        colsig = (tuple(out.lstview.colnames), tuple(out.lstview.colprops))
+        if colsig != self._prev_colsig:
+            self.lstview.ClearColumns()
+            wmargin = 40  # Accounts for borders and scrollbar.
+            proptotal = sum(out.lstview.colprops)
+            for idx, colname in enumerate(out.lstview.colnames):
+                width = floor((self.size[0] - wmargin) * (out.lstview.colprops[idx] / proptotal))
+                self.lstview.AppendTextColumn(colname, width=width)
+        self._prev_colsig = colsig
+
+    def _HandleLstviewRows(self, out):
+        self.lstview.DeleteAllItems()
+        for row in out.lstview.rows:
+            if row:
+                self.lstview.AppendItem(row)
+        if out.lstview.selnum is None:
+            self.SelectRowNum(0)
+        else:
+            self.SelectRowNum(out.lstview.selnum)
 
     def OnCloseWindow(self, event):
         pass # This disables ALT+F4

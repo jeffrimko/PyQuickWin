@@ -2,7 +2,7 @@
 ## SECTION: Imports                                             #
 ##==============================================================#
 
-from abc import ABC, abstractstaticmethod
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 import ctypes
 
@@ -30,10 +30,12 @@ class WinInfoBase:
     pid: int
 
 class WinControlBase(ABC):
-    @abstractstaticmethod
+    @staticmethod
+    @abstractmethod
     def show(self, winfo):
         pass
-    @abstractstaticmethod
+    @staticmethod
+    @abstractmethod
     def list(self):
         pass
 
@@ -51,6 +53,8 @@ if auxly.iswindows():
             return hash(self) == hash(other)
 
     class WinControl(WinControlBase):
+        _exe_cache: dict[int, str] = {}
+
         @staticmethod
         def show(winfo):
             if win32gui.IsIconic(winfo.hwnd):
@@ -59,15 +63,26 @@ if auxly.iswindows():
 
         @staticmethod
         def list():
+            seen_pids = set()
             windows = []
             def cb(hwnd, lparam):
                 if win32gui.IsWindowVisible(hwnd) and _is_alttab_win(hwnd):
                     title = win32gui.GetWindowText(hwnd)
                     _, pid = win32process.GetWindowThreadProcessId(hwnd)
-                    exe = psutil.Process(pid).name()
-                    info = WinInfo(title, exe, pid, hwnd)
-                    windows.append(info)
+                    seen_pids.add(pid)
+                    exe = WinControl._exe_cache.get(pid)
+                    if exe is None:
+                        try:
+                            exe = psutil.Process(pid).name()
+                        except Exception:
+                            exe = ""
+                        WinControl._exe_cache[pid] = exe
+                    windows.append(WinInfo(title, exe, pid, hwnd))
             win32gui.EnumWindows(cb, None)
+            # prune dead pids so the cache doesn't grow unbounded
+            for pid in list(WinControl._exe_cache):
+                if pid not in seen_pids:
+                    del WinControl._exe_cache[pid]
             return windows
 
     def _is_alttab_win(hwnd):

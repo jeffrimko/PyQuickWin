@@ -9,9 +9,11 @@ from functools import wraps
 from typing import Callable, Dict, List, Optional
 import csv
 import os
+import re
 import sys
 
 from auxly.filesys import Dir, File, Path, abspath, walkall, walkfiles, walkdirs
+from simpleeval import simple_eval
 import auxly
 import pyperclip
 import ujson
@@ -568,7 +570,7 @@ class MathProcessor(SubprocessorBase):
         output = ProcessorOutput()
         output.hide_rows()
         try:
-            result = eval(cmdtext)
+            result = simple_eval(cmdtext)
             output.add_txt(f"Math result: {result}")
         except Exception:
             output.add_txt(f"Math result:")
@@ -602,15 +604,10 @@ class QuickCmdProcessor(SubprocessorBase):
             return self._set_cmd(pinput)
         cmdtext = remove_prefix(self.prefix, pinput.cmd)
         rows = self._filter_rows(cmdtext)
-        try_sel_prev = self.was_activated
-        if try_sel_prev:
-            try:
-                entry = self._histmgr.get_prev_entry(self.prefix)
-                names = [row[0] for row in rows]
-                selnum = names.index(entry.row)
-            except:
-                selnum = 0
-        else:
+        selnum = None
+        if pinput.event.kind == EventKind.CMD_CHANGE:
+            selnum = self._histmgr.match_to_row(pinput.cmd.strip(), [r[0] for r in rows])
+        if selnum is None:
             selnum = pinput.lstview.selnum
         output = ProcessorOutput()
         output.add_txt(f"Found {len(rows)} matching QuickCmds")
@@ -966,6 +963,8 @@ class StrCompare:
     def choice(test: str, target: str) -> bool:
         if test.startswith("'"):
             return StrCompare.includes(test[1:], target)
+        elif test.startswith('"'):
+            return StrCompare.regex(test[1:], target)
         return StrCompare.progressive(test, target)
 
     @staticmethod
@@ -990,6 +989,12 @@ class StrCompare:
         ltest = test.lower()
         ltarg = target.lower()
         return ltest in ltarg
+
+    @staticmethod
+    @_argcheck
+    def regex(test: str, target: str) -> bool:
+        match = re.search(test, target)
+        return match != None
 
     @staticmethod
     @_argcheck

@@ -1,8 +1,8 @@
-attrdict3
 auxly
 PyYAML
 psutil
 ujson
 wxPython
 pyperclip
+simpleeval
 pywin32; sys_platform == 'win32'
