@@ -68,6 +68,9 @@ def update_histmgr(method):
             pout = ProcessorOutput()
             pout.add_cmd(histmgr.get_next_cmd(pinput.cmd))
             return pout
+        is_input_from_user = pinput.event.is_cmdchange() and not histmgr.is_last_emitted(pinput.cmd)
+        if is_input_from_user:
+            histmgr.reset()
         if pinput.is_complete and pinput.cmd:
             histmgr.add(pinput)
         return method(processor, pinput)
@@ -211,6 +214,10 @@ class HistManager:
     def reset(self):
         self._pointer = -1
         self._cmd_prefix = None
+        self._last_emitted = None
+
+    def is_last_emitted(self, cmd: str) -> bool:
+        return self._last_emitted is not None and cmd == self._last_emitted
 
     def get_next_entry(self, cmd_prefix: str) -> Optional[HistEntry]:
         self._try_set_cmd_prefix(cmd_prefix)
@@ -223,7 +230,8 @@ class HistManager:
 
     def get_next_cmd(self, cmd_prefix: str) -> Optional[str]:
         entry = self.get_next_entry(cmd_prefix)
-        return entry.cmd if entry else None
+        self._last_emitted = entry.cmd if entry else None
+        return self._last_emitted
 
     def get_prev_entry(self, cmd_prefix: str) -> Optional[HistEntry]:
         self._try_set_cmd_prefix(cmd_prefix)
@@ -236,7 +244,8 @@ class HistManager:
 
     def get_prev_cmd(self, cmd_prefix: str) -> Optional[str]:
         entry = self.get_prev_entry(cmd_prefix)
-        return entry.cmd if entry else None
+        self._last_emitted = entry.cmd if entry else None
+        return self._last_emitted
 
     def _try_set_cmd_prefix(self, cmd_prefix):
         should_set = self._cmd_prefix is None
